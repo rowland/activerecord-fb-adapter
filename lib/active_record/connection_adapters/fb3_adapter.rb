@@ -28,6 +28,68 @@ module ActiveRecord
   end
 
   module ConnectionAdapters # :nodoc:
+    class FbColumn < Column # :nodoc:
+      def initialize(name, domain, type, sub_type, length, precision, scale, default_source, null_flag)
+        @firebird_type = Fb::SqlType.from_code(type, sub_type || 0)
+        super(name.downcase, nil, @firebird_type, !null_flag)
+        @default = parse_default(default_source) if default_source
+        @limit = (@firebird_type == 'BLOB') ? 10 * 1024 * 1024 : length
+        @domain, @sub_type, @precision, @scale = domain, sub_type, precision, scale
+      end
+
+      def type
+        if @domain =~ /BOOLEAN/
+          :boolean
+        elsif @type == :binary and @sub_type == 1
+          :text
+        else
+          @type
+        end
+      end
+
+      # Submits a _CAST_ query to the database, casting the default value to the specified SQL type.
+      # This enables Firebird to provide an actual value when context variables are used as column
+      # defaults (such as CURRENT_TIMESTAMP).
+      def default
+        if @default
+          sql = "SELECT CAST(#{@default} AS #{column_def}) FROM RDB$DATABASE"
+          connection = ActiveRecord::Base.connection
+          if connection
+            type_cast connection.select_one(sql)['cast']
+          else
+            raise ConnectionNotEstablished, "No Firebird connections established."
+          end
+        end
+      end
+
+      def self.value_to_boolean(value)
+        %W(#{FbAdapter.boolean_domain[:true]} true t 1).include? value.to_s.downcase
+      end
+
+    private
+      def parse_default(default_source)
+        default_source =~ /^\s*DEFAULT\s+(.*)\s*$/i
+        return $1 unless $1.upcase == "NULL"
+      end
+
+      def column_def
+        case @firebird_type
+          when 'CHAR', 'VARCHAR'    then "#{@firebird_type}(#{@limit})"
+          when 'NUMERIC', 'DECIMAL' then "#{@firebird_type}(#{@precision},#{@scale.abs})"
+          #when 'DOUBLE'             then "DOUBLE PRECISION"
+          else @firebird_type
+        end
+      end
+
+      def simplified_type(field_type)
+        if field_type == 'TIMESTAMP'
+          :datetime
+        else
+          super
+        end
+      end
+    end
+
     # The Fb adapter relies on the Fb extension.
     #
     # == Usage Notes
@@ -187,13 +249,6 @@ module ActiveRecord
         1499
       end
 
-      # QUOTING ==================================================
-
-      # Override to return the quoted table name. Defaults to column quoting.
-      # def quote_table_name(name)
-      #   quote_column_name(name)
-      # end
-
       # REFERENTIAL INTEGRITY ====================================
 
       # Override to turn off referential integrity while executing <tt>&block</tt>.
@@ -290,6 +345,19 @@ module ActiveRecord
       # end
 
     protected
+      def translate(sql)
+        sql.gsub!(/\bIN\s+\(NULL\)/i, 'IS NULL')
+        sql.sub!(/\bWHERE\s.*$/im) do |m|
+          m.gsub(/\s=\s*NULL\b/i, ' IS NULL')
+        end
+        sql.gsub!(/\sIN\s+\([^\)]*\)/mi) do |m|
+          m.gsub(/\(([^\)]*)\)/m) { |n| n.gsub(/\@(.*?)\@/m) { |n| "'#{quote_string(Base64.decode64(n[1..-1]))}'" } }
+        end
+        args = []
+        sql.gsub!(/\@(.*?)\@/m) { |m| args << Base64.decode64(m[1..-1]); '?' }
+        yield(sql, args) if block_given?
+      end
+
       def expand(sql, args)
         sql + ', ' + args * ', '
       end
@@ -533,6 +601,137 @@ module ActiveRecord
       # column values as values.
       def select(sql, name = nil)
         select_all(sql, name, :array)
+      end
+
+    public
+      # from module SchemaStatements
+
+      # Returns a Hash of mappings from the abstract data types to the native
+      # database types.  See TableDefinition#column for details on the recognized
+      # abstract data types.
+      def native_database_types
+        {
+          :primary_key => "integer not null primary key",
+          :string      => { :name => "varchar", :limit => 255 },
+          :text        => { :name => "blob sub_type text" },
+          :integer     => { :name => "integer" },
+          :float       => { :name => "float" },
+          :decimal     => { :name => "decimal" },
+          :datetime    => { :name => "timestamp" },
+          :timestamp   => { :name => "timestamp" },
+          :time        => { :name => "time" },
+          :date        => { :name => "date" },
+          :binary      => { :name => "blob" },
+          :boolean     => { :name => "integer" }
+        }
+      end
+
+      # Truncates a table alias according to the limits of the current adapter.
+      # def table_alias_for(table_name)
+      #   table_name[0..table_alias_length-1].gsub(/\./, '_')
+      # end
+
+      # def tables(name = nil) end
+      def tables(name = nil)
+        @connection.table_names
+      end
+
+      # Returns an array of indexes for the given table.
+      def indexes(table_name, name = nil)
+        result = @connection.indexes.values.select {|ix| ix.table_name == table_name && ix.index_name !~ /^rdb\$/ }
+        indexes = result.map {|ix| IndexDefinition.new(table_name, ix.index_name, ix.unique, ix.columns) }
+        indexes
+      end
+
+      # Returns an array of Column objects for the table specified by +table_name+.
+      # See the concrete implementation for details on the expected parameter values.
+      def columns(table_name, name = nil)
+        sql = <<-END_SQL
+          SELECT r.rdb$field_name, r.rdb$field_source, f.rdb$field_type, f.rdb$field_sub_type,
+                 f.rdb$field_length, f.rdb$field_precision, f.rdb$field_scale,
+                 COALESCE(r.rdb$default_source, f.rdb$default_source) rdb$default_source,
+                 COALESCE(r.rdb$null_flag, f.rdb$null_flag) rdb$null_flag
+          FROM rdb$relation_fields r
+          JOIN rdb$fields f ON r.rdb$field_source = f.rdb$field_name
+          WHERE r.rdb$relation_name = '#{table_name.to_s.upcase}'
+          ORDER BY r.rdb$field_position
+        END_SQL
+        select_all(sql, name, :array).collect do |field|
+          field_values = field.collect do |value|
+            case value
+              when String then value.rstrip
+              else value
+            end
+          end
+          FbColumn.new(*field_values)
+        end
+      end
+
+      # Adds a new column to the named table.
+      # See TableDefinition#column for details of the options you can use.
+      def add_column(table_name, column_name, type, options = {})
+        add_column_sql = "ALTER TABLE #{quote_table_name(table_name)} ADD #{quote_column_name(column_name)} #{type_to_sql(type, options[:limit], options[:precision], options[:scale])}"
+        add_column_options!(add_column_sql, options)
+        execute(add_column_sql)
+      end
+
+      # Changes the column's definition according to the new options.
+      # See TableDefinition#column for details of the options you can use.
+      # ===== Examples
+      #  change_column(:suppliers, :name, :string, :limit => 80)
+      #  change_column(:accounts, :description, :text)
+      def change_column(table_name, column_name, type, options = {})
+        sql = "ALTER TABLE #{quote_table_name(table_name)} ALTER COLUMN #{quote_column_name(column_name)} TYPE #{type_to_sql(type, options[:limit], options[:precision], options[:scale])}"
+        sql = add_column_options(sql, options)
+        execute(sql)
+      end
+
+      # Sets a new default value for a column.  If you want to set the default
+      # value to +NULL+, you are out of luck.  You need to
+      # DatabaseStatements#execute the appropriate SQL statement yourself.
+      # ===== Examples
+      #  change_column_default(:suppliers, :qualification, 'new')
+      #  change_column_default(:accounts, :authorized, 1)
+      def change_column_default(table_name, column_name, default)
+        execute("ALTER TABLE #{quote_table_name(table_name)} ALTER #{quote_column_name(column_name)} SET DEFAULT #{quote(default)}")
+      end
+
+      # Renames a column.
+      # ===== Example
+      #  rename_column(:suppliers, :description, :name)
+      def rename_column(table_name, column_name, new_column_name)
+        execute "ALTER TABLE #{quote_table_name(table_name)} ALTER #{quote_column_name(column_name)} TO #{quote_column_name(new_column_name)}"
+      end
+
+      def remove_index!(table_name, index_name) #:nodoc:
+        execute("DROP INDEX #{quote_column_name(index_name)}")
+      end
+
+      def index_name(table_name, options) #:nodoc:
+        if Hash === options # legacy support
+          if options[:column]
+            "#{table_name}_#{Array.wrap(options[:column]) * '_'}"
+          elsif options[:name]
+            options[:name]
+          else
+            raise ArgumentError, "You must specify the index name"
+          end
+        else
+          index_name(table_name, :column => options)
+        end
+      end
+
+      # Maps logical Rails types to Firebird-specific data types.
+      def type_to_sql(type, limit = nil, precision = nil, scale = nil)
+        return super unless type.to_s == 'integer'
+        return 'integer' unless limit
+
+        case limit
+          when 1, 2 then 'smallint'
+          when 3, 4 then 'integer'
+          when 5..8 then 'bigint'
+          else raise(ActiveRecordError, "No integer type has byte size #{limit}. Use a NUMERIC with PRECISION 0 instead.")
+        end
       end
     end
   end
