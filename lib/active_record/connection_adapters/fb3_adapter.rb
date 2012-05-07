@@ -721,18 +721,34 @@ module ActiveRecord
         end
       end
 
-      # Maps logical Rails types to Firebird-specific data types.
       def type_to_sql(type, limit = nil, precision = nil, scale = nil)
-        return super unless type.to_s == 'integer'
-        return 'integer' unless limit
+        case type
+        when :integer then integer_to_sql(limit)
+        when :float then float_to_sql(limit)
+        else super
+        end
+      end
 
+    private
+      # Map logical Rails types to Firebird-specific data types.
+      def integer_to_sql(limit)
+        return 'integer' if limit.nil?
         case limit
-          when 1, 2 then 'smallint'
-          when 3, 4 then 'integer'
+          when 1..2 then 'smallint'
+          when 3..4 then 'integer'
           when 5..8 then 'bigint'
           else raise(ActiveRecordError, "No integer type has byte size #{limit}. Use a NUMERIC with PRECISION 0 instead.")
         end
       end
+
+      def float_to_sql(limit)
+        if limit <= 4
+          'float'
+        else
+          'double precision'
+        end
+      end
+
     end
   end
 end
