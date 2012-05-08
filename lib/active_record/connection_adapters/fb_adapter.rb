@@ -191,7 +191,7 @@ module ActiveRecord
     #   Specifies the character set to be used by the connection. Refer to the
     #   Firebird documentation for valid options.
     class FbAdapter < AbstractAdapter
-      @@boolean_domain = { :true => 1, :false => 0 }
+      @@boolean_domain = { :true => 1, :false => 0, :name => 'BOOLEAN', :type => 'integer' }
       cattr_accessor :boolean_domain
 
       def initialize(connection, logger, connection_params=nil)
@@ -573,7 +573,7 @@ module ActiveRecord
         sql
       end
 
-      def default_sequence_name(table, column)
+      def default_sequence_name(table_name, column=nil)
         "#{table_name}_seq"
       end
 
@@ -581,6 +581,10 @@ module ActiveRecord
       def reset_sequence!(table, column, sequence = nil)
         max_id = select_value("select max(#{column}) from #{table}")
         execute("alter sequence #{default_sequence_name(table, column)} restart with #{max_id}")
+      end
+
+      def next_sequence_value(sequence_name)
+        select_one("SELECT GEN_ID(#{sequence_name}, 1) FROM RDB$DATABASE", nil, :array).first
       end
 
       # Inserts the given fixture into the table. Overridden in adapters that require
@@ -644,6 +648,18 @@ module ActiveRecord
         indexes
       end
 
+      def primary_key(table_name) #:nodoc:
+        sql = <<-END_SQL
+          SELECT s.rdb$field_name
+          FROM rdb$indices i
+          JOIN rdb$index_segments s ON i.rdb$index_name = s.rdb$index_name
+          LEFT JOIN rdb$relation_constraints c ON i.rdb$index_name = c.rdb$index_name
+          WHERE i.rdb$relation_name = '#{quote_table_name(table_name)}' and c.rdb$constraint_type = 'PRIMARY KEY';
+        END_SQL
+        row = select_one(sql)
+        row && row.first.rstrip
+      end
+
       # Returns an array of Column objects for the table specified by +table_name+.
       # See the concrete implementation for details on the expected parameter values.
       def columns(table_name, name = nil)
@@ -665,6 +681,28 @@ module ActiveRecord
             end
           end
           FbColumn.new(*field_values)
+        end
+      end
+
+      def create_table(name, options = {}) # :nodoc:
+        begin
+          super
+        rescue
+          raise unless non_existent_domain_error?
+          create_boolean_domain
+          super
+        end
+        unless options[:id] == false or options[:sequence] == false
+          sequence_name = options[:sequence] || default_sequence_name(name)
+          create_sequence(sequence_name)
+        end
+      end
+
+      def drop_table(name, options = {}) # :nodoc:
+        super(name)
+        unless options[:sequence] == false
+          sequence_name = options[:sequence] || default_sequence_name(name)
+          drop_sequence(sequence_name) if sequence_exists?(sequence_name)
         end
       end
 
@@ -748,6 +786,27 @@ module ActiveRecord
         else
           'double precision'
         end
+      end
+
+      NON_EXISTENT_DOMAIN_ERROR = "335544569"
+      def non_existent_domain_error?
+        $!.message.include? NON_EXISTENT_DOMAIN_ERROR
+      end
+
+      def create_boolean_domain
+        sql = <<-end_sql
+          CREATE DOMAIN #{boolean_domain[:name]} AS #{boolean_domain[:type]}
+          CHECK (VALUE IN (#{quoted_true}, #{quoted_false}) OR VALUE IS NULL)
+        end_sql
+        execute(sql)
+      end
+
+      def create_sequence(sequence_name)
+        execute("CREATE SEQUENCE #{sequence_name}")
+      end
+
+      def drop_sequence(sequence_name)
+        execute("DROP SEQUENCE #{sequence_name}")
       end
 
     public
