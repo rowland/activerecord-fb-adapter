@@ -380,7 +380,7 @@ module ActiveRecord
 
     public
       # from module Quoting
-      def quote(value, column = nil)
+      def quote(value, column = nil, inline = false)
         # records are quoted as their primary key
         return value.quoted_id if value.respond_to?(:quoted_id)
 
@@ -390,6 +390,8 @@ module ActiveRecord
           if column && [:integer, :float].include?(column.type)
             value = column.type == :integer ? value.to_i : value.to_f
             value.to_s
+          elsif inline
+            quote_string(value)
           else
             "@#{Base64.encode64(value).chop}@"
           end
@@ -627,7 +629,7 @@ module ActiveRecord
           :time        => { :name => "time" },
           :date        => { :name => "date" },
           :binary      => { :name => "blob" },
-          :boolean     => { :name => "integer" }
+          :boolean     => { :name => boolean_domain[:name] }
         }
       end
 
@@ -654,7 +656,7 @@ module ActiveRecord
           FROM rdb$indices i
           JOIN rdb$index_segments s ON i.rdb$index_name = s.rdb$index_name
           LEFT JOIN rdb$relation_constraints c ON i.rdb$index_name = c.rdb$index_name
-          WHERE i.rdb$relation_name = '#{quote_table_name(table_name)}' and c.rdb$constraint_type = 'PRIMARY KEY';
+          WHERE i.rdb$relation_name = '#{ar_to_fb_case(table_name)}' and c.rdb$constraint_type = 'PRIMARY KEY';
         END_SQL
         row = select_one(sql)
         row && row.first.rstrip
@@ -670,7 +672,7 @@ module ActiveRecord
                  COALESCE(r.rdb$null_flag, f.rdb$null_flag) rdb$null_flag
           FROM rdb$relation_fields r
           JOIN rdb$fields f ON r.rdb$field_source = f.rdb$field_name
-          WHERE r.rdb$relation_name = '#{table_name.to_s.upcase}'
+          WHERE r.rdb$relation_name = '#{ar_to_fb_case(table_name)}'
           ORDER BY r.rdb$field_position
         END_SQL
         select_all(sql, name, :array).collect do |field|
@@ -732,7 +734,7 @@ module ActiveRecord
       #  change_column_default(:suppliers, :qualification, 'new')
       #  change_column_default(:accounts, :authorized, 1)
       def change_column_default(table_name, column_name, default)
-        execute("ALTER TABLE #{quote_table_name(table_name)} ALTER #{quote_column_name(column_name)} SET DEFAULT #{quote(default)}")
+        execute("ALTER TABLE #{quote_table_name(table_name)} ALTER #{quote_column_name(column_name)} SET DEFAULT #{quote(default, nil, true)}")
       end
 
       # Renames a column.
@@ -788,9 +790,8 @@ module ActiveRecord
         end
       end
 
-      NON_EXISTENT_DOMAIN_ERROR = "335544569"
       def non_existent_domain_error?
-        $!.message.include? NON_EXISTENT_DOMAIN_ERROR
+        $!.message =~ /Specified domain or source column \w+ does not exist/
       end
 
       def create_boolean_domain
@@ -807,6 +808,10 @@ module ActiveRecord
 
       def drop_sequence(sequence_name)
         execute("DROP SEQUENCE #{sequence_name}")
+      end
+
+      def sequence_exists?(sequence_name)
+        @connection.generator_names.include?(sequence_name)
       end
 
     public
