@@ -11,20 +11,29 @@ module Arel
     class FB < Arel::Visitors::ToSql
     protected
 
-      # def visit_Arel_Nodes_Limit o
-      #   puts "visit_Arel_Nodes_Limit #{o.inspect}"
-      #   "ROWS #{visit o.expr}"
-      # end
-      # 
-      # def visit_Arel_Nodes_Offset o
-      #   puts "visit_Arel_Nodes_Offset #{o.inspect}"
-      # end
-      # 
-      # def visit_Arel_Nodes_SelectStatement o
-      #   puts "visit_Arel_Nodes_SelectStatement #{o.inspect}"
-      #   super
-      # end
+      def visit_Arel_Nodes_SelectStatement(o)
+        select_core = o.cores.map { |x| visit_Arel_Nodes_SelectCore(x) }.join
+        select_core.sub!(/^\s*SELECT/i, "SELECT #{visit o.offset}") if o.offset && !o.limit
+        [
+          select_core,
+          ("ORDER BY #{o.orders.map { |x| visit x }.join(', ')}" unless o.orders.empty?),
+          (limit_offset(o) if o.limit && o.offset),
+          (visit(o.limit) if o.limit && !o.offset),
+        ].compact.join ' '
+      end
 
+      def visit_Arel_Nodes_Limit(o)
+        "ROWS #{visit o.expr}"
+      end
+
+      def visit_Arel_Nodes_Offset(o)
+        "SKIP #{visit o.expr}"
+      end
+
+    private
+      def limit_offset(o)
+        "ROWS #{visit o.offset.expr + 1} TO #{visit(o.offset.expr) + visit(o.limit.expr)}"
+      end
     end
   end
 end
