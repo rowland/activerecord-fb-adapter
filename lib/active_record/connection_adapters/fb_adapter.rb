@@ -6,6 +6,31 @@ require 'active_record/connection_adapters/abstract_adapter'
 # require 'active_support/core_ext/kernel/requires'
 require 'base64'
 
+module Arel
+  module Visitors
+    class FB < Arel::Visitors::ToSql
+    protected
+
+      # def visit_Arel_Nodes_Limit o
+      #   puts "visit_Arel_Nodes_Limit #{o.inspect}"
+      #   "ROWS #{visit o.expr}"
+      # end
+      # 
+      # def visit_Arel_Nodes_Offset o
+      #   puts "visit_Arel_Nodes_Offset #{o.inspect}"
+      # end
+      # 
+      # def visit_Arel_Nodes_SelectStatement o
+      #   puts "visit_Arel_Nodes_SelectStatement #{o.inspect}"
+      #   super
+      # end
+
+    end
+  end
+end
+
+Arel::Visitors::VISITORS['fb'] = Arel::Visitors::FB
+
 module ActiveRecord
   class << Base
     def fb_connection(config) # :nodoc:
@@ -197,6 +222,11 @@ module ActiveRecord
       def initialize(connection, logger, connection_params=nil)
         super(connection, logger)
         @connection_params = connection_params
+        @visitor = Arel::Visitors::FB.new(self)
+      end
+
+      def self.visitor_for(pool) # :nodoc:
+        Arel::Visitors::FB.new(pool)
       end
 
       # Returns the human-readable name of the adapter.  Use mixed case - one
@@ -215,7 +245,7 @@ module ActiveRecord
       # to an Active Record class, such as join tables?  Backend specific, as
       # the abstract adapter always returns +false+.
       def supports_primary_key?
-        false
+        true
       end
 
       # Does this adapter support using DISTINCT within COUNT?  This is +true+
@@ -263,7 +293,12 @@ module ActiveRecord
       # checking whether the database is actually capable of responding, i.e. whether
       # the connection isn't stale.
       def active?
-        @connection.open?
+        return false unless @connection.open?
+        # return true if @connection.transaction_started
+        select("SELECT 1 FROM RDB$DATABASE")
+        true
+      rescue
+        false
       end
 
       # Disconnects from the database if already connected, and establishes a
@@ -363,16 +398,16 @@ module ActiveRecord
         sql + ', ' + args * ', '
       end
 
-      def log(sql, args, name, &block)
-        super(expand(sql, args), name, &block)
-      end
+      # def log(sql, args, name, &block)
+      #   super(expand(sql, args), name, &block)
+      # end
 
       def translate_exception(e, message)
         case e.message
         when /violation of FOREIGN KEY constraint/
-          InvalidForeignKey.new(message, exception)
+          InvalidForeignKey.new(message, e)
         when /violation of PRIMARY or UNIQUE KEY constraint/
-          RecordNotUnique.new(message, exception)
+          RecordNotUnique.new(message, e)
         else
           super
         end
@@ -380,7 +415,7 @@ module ActiveRecord
 
     public
       # from module Quoting
-      def quote(value, column = nil, inline = false)
+      def quote(value, column = nil)
         # records are quoted as their primary key
         return value.quoted_id if value.respond_to?(:quoted_id)
 
@@ -390,8 +425,8 @@ module ActiveRecord
           if column && [:integer, :float].include?(column.type)
             value = column.type == :integer ? value.to_i : value.to_f
             value.to_s
-          elsif inline
-            quote_string(value)
+          elsif column && column.type != :binary && value.size < 256
+            "'#{quote_string(value)}'"
           else
             "@#{Base64.encode64(value).chop}@"
           end
@@ -470,28 +505,25 @@ module ActiveRecord
 
       # Returns an array of record hashes with the column names as keys and
       # column values as values.
-      def select_all(sql, name = nil, format = :hash) # :nodoc:
-        translate(sql) do |sql, args|
-          log(sql, args, name) do
-            @connection.query(format, sql, *args)
-          end
-        end
-      end
-
-      # Returns a record hash with the column names as keys and column values
-      # as values.
-      def select_one(sql, name = nil, format = :hash) # :nodoc:
-        translate(sql) do |sql, args|
-          log(sql, args, name) do
-            @connection.query(format, sql, *args).first
-          end
-        end
+      # def select_all(sql, name = nil, format = :hash) # :nodoc:
+      #   translate(sql) do |sql, args|
+      #     log(sql, args, name) do
+      #       @connection.query(format, sql, *args)
+      #     end
+      #   end
+      # end
+      # Returns an array of record hashes with the column names as keys and
+      # column values as values.
+      def select_all(arel, name = nil, binds = [])
+        select(to_sql(arel, binds), name, binds)
       end
 
       # Returns an array of arrays containing the field values.
       # Order is the same as that returned by +columns+.
       def select_rows(sql, name = nil)
-        select_all(sql, name, :array)
+        log(sql, name) do
+          @connection.query(:array, sql)
+        end
       end
 
       # Executes the SQL statement in the context of this connection.
@@ -507,11 +539,21 @@ module ActiveRecord
         end
       end
 
-      # Returns the last auto-generated ID from the affected table.
-      def insert(sql, name = nil, pk = nil, id_value = nil, sequence_name = nil)
-        execute(sql, name)
-        id_value
+      # Executes +sql+ statement in the context of this connection using
+      # +binds+ as the bind substitutes. +name+ is logged along with
+      # the executed +sql+ statement.
+      def exec_query(sql, name = 'SQL', binds = [])
+        log(sql, name, binds) do
+          args = binds.map { |col, val| type_cast(val, col) }
+          @connection.execute(sql, *args)
+        end
       end
+
+      # Returns the last auto-generated ID from the affected table.
+      # def insert(sql, name = nil, pk = nil, id_value = nil, sequence_name = nil, binds = [])
+      #   execute(sql, name)
+      #   id_value
+      # end
 
       # Executes the update statement and returns the number of rows affected.
       alias_method :update, :execute
@@ -586,7 +628,7 @@ module ActiveRecord
       end
 
       def next_sequence_value(sequence_name)
-        select_one("SELECT GEN_ID(#{sequence_name}, 1) FROM RDB$DATABASE", nil, :array).first
+        select_one("SELECT GEN_ID(#{sequence_name}, 1) FROM RDB$DATABASE").values.first
       end
 
       # Inserts the given fixture into the table. Overridden in adapters that require
@@ -606,8 +648,11 @@ module ActiveRecord
     protected
       # Returns an array of record hashes with the column names as keys and
       # column values as values.
-      def select(sql, name = nil)
-        select_all(sql, name, :array)
+      def select(sql, name = nil, binds = [])
+        log(sql, name, binds) do
+          args = binds.map { |col, val| type_cast(val, col) }
+          @connection.query(:hash, sql, *args)
+        end
       end
 
     public
@@ -659,7 +704,7 @@ module ActiveRecord
           WHERE i.rdb$relation_name = '#{ar_to_fb_case(table_name)}' and c.rdb$constraint_type = 'PRIMARY KEY';
         END_SQL
         row = select_one(sql)
-        row && row.first.rstrip
+        row && fb_to_ar_case(row.values.first.rstrip)
       end
 
       # Returns an array of Column objects for the table specified by +table_name+.
@@ -675,7 +720,7 @@ module ActiveRecord
           WHERE r.rdb$relation_name = '#{ar_to_fb_case(table_name)}'
           ORDER BY r.rdb$field_position
         END_SQL
-        select_all(sql, name, :array).collect do |field|
+        select_rows(sql, name).collect do |field|
           field_values = field.collect do |value|
             case value
               when String then value.rstrip
@@ -734,7 +779,7 @@ module ActiveRecord
       #  change_column_default(:suppliers, :qualification, 'new')
       #  change_column_default(:accounts, :authorized, 1)
       def change_column_default(table_name, column_name, default)
-        execute("ALTER TABLE #{quote_table_name(table_name)} ALTER #{quote_column_name(column_name)} SET DEFAULT #{quote(default, nil, true)}")
+        execute("ALTER TABLE #{quote_table_name(table_name)} ALTER #{quote_column_name(column_name)} SET DEFAULT #{quote(default)}")
       end
 
       # Renames a column.
