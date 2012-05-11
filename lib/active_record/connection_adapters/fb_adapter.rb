@@ -13,26 +13,35 @@ module Arel
 
       def visit_Arel_Nodes_SelectStatement(o)
         select_core = o.cores.map { |x| visit_Arel_Nodes_SelectCore(x) }.join
-        select_core.sub!(/^\s*SELECT/i, "SELECT #{visit o.offset}") if o.offset && !o.limit
+        select_core.sub!(/^\s*SELECT/i, "SELECT #{visit(o.offset)}") if o.offset && !o.limit
         [
           select_core,
-          ("ORDER BY #{o.orders.map { |x| visit x }.join(', ')}" unless o.orders.empty?),
+          ("ORDER BY #{o.orders.map { |x| visit(x) }.join(', ')}" unless o.orders.empty?),
           (limit_offset(o) if o.limit && o.offset),
           (visit(o.limit) if o.limit && !o.offset),
         ].compact.join ' '
       end
 
+      def visit_Arel_Nodes_UpdateStatement o
+        [
+          "UPDATE #{visit o.relation}",
+          ("SET #{o.values.map { |value| visit(value) }.join ', '}" unless o.values.empty?),
+          ("WHERE #{o.wheres.map { |x| visit(x) }.join ' AND '}" unless o.wheres.empty?),
+          (visit(o.limit) if o.limit),
+        ].compact.join ' '
+      end
+
       def visit_Arel_Nodes_Limit(o)
-        "ROWS #{visit o.expr}"
+        "ROWS #{visit(o.expr)}"
       end
 
       def visit_Arel_Nodes_Offset(o)
-        "SKIP #{visit o.expr}"
+        "SKIP #{visit(o.expr)}"
       end
 
     private
       def limit_offset(o)
-        "ROWS #{visit o.offset.expr + 1} TO #{visit(o.offset.expr) + visit(o.limit.expr)}"
+        "ROWS #{visit(o.offset.expr) + 1} TO #{visit(o.offset.expr) + visit(o.limit.expr)}"
       end
     end
   end
@@ -404,7 +413,7 @@ module ActiveRecord
       end
 
       def expand(sql, args)
-        sql + ', ' + args * ', '
+        ([sql] + args) * ', '
       end
 
       # def log(sql, args, name, &block)
@@ -536,25 +545,33 @@ module ActiveRecord
       end
 
       # Executes the SQL statement in the context of this connection.
-      def execute(sql, name = nil, skip_logging = false)
-        translate(sql) do |sql, args|
-          if (name == :skip_logging) or skip_logging
-            @connection.execute(sql, *args)
-          else
-            log(sql, args, name) do
-              @connection.execute(sql, *args)
-            end
-          end
-        end
-      end
+      # def execute(sql, name = nil, skip_logging = false)
+      #   translate(sql) do |sql, args|
+      #     if (name == :skip_logging) or skip_logging
+      #       @connection.execute(sql, *args)
+      #     else
+      #       log(sql, args, name) do
+      #         @connection.execute(sql, *args)
+      #       end
+      #     end
+      #   end
+      # end
 
       # Executes +sql+ statement in the context of this connection using
       # +binds+ as the bind substitutes. +name+ is logged along with
       # the executed +sql+ statement.
       def exec_query(sql, name = 'SQL', binds = [])
-        log(sql, name, binds) do
-          args = binds.map { |col, val| type_cast(val, col) }
-          @connection.execute(sql, *args)
+        if binds.empty?
+          translate(sql) do |sql, args|
+            log(expand(sql, args), name) do
+              @connection.execute(sql, *args)
+            end
+          end
+        else
+          log(sql, name, binds) do
+            args = binds.map { |col, val| type_cast(val, col) }
+            @connection.execute(sql, *args)
+          end
         end
       end
 
@@ -565,13 +582,13 @@ module ActiveRecord
       # end
 
       # Executes the update statement and returns the number of rows affected.
-      alias_method :update, :execute
+      # alias_method :update, :execute
       # def update(sql, name = nil)
       #   update_sql(sql, name)
       # end
 
       # Executes the delete statement and returns the number of rows affected.
-      alias_method :delete, :execute
+      # alias_method :delete, :execute
       # def delete(sql, name = nil)
       #   delete_sql(sql, name)
       # end
@@ -658,9 +675,17 @@ module ActiveRecord
       # Returns an array of record hashes with the column names as keys and
       # column values as values.
       def select(sql, name = nil, binds = [])
-        log(sql, name, binds) do
-          args = binds.map { |col, val| type_cast(val, col) }
-          @connection.query(:hash, sql, *args)
+        if binds.empty?
+          translate(sql) do |sql, args|
+            log(expand(sql, args), name) do
+              @connection.query(:hash, sql, *args)
+            end
+          end
+        else
+          log(sql, name, binds) do
+            args = binds.map { |col, val| type_cast(val, col) }
+            @connection.query(:hash, sql, *args)
+          end
         end
       end
 
