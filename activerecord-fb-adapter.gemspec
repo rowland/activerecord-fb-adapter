@@ -14,6 +14,7 @@ def spec
     s.homepage = "http://github.com/rowland/activerecord-fb-adapter"
     s.has_rdoc = false
     s.files = Dir.glob('lib/active_record/connection_adapters/*')
+    s.add_dependency("fb", ">= 0.7.0")
   end
 end
 
