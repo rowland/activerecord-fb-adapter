@@ -443,7 +443,7 @@ module ActiveRecord
           if column && [:integer, :float].include?(column.type)
             value = column.type == :integer ? value.to_i : value.to_f
             value.to_s
-          elsif column && column.type != :binary && value.size < 256
+          elsif column && column.type != :binary && value.size < 256 && !value.include?('@')
             "'#{quote_string(value)}'"
           else
             "@#{Base64.encode64(value).chop}@"
@@ -545,17 +545,17 @@ module ActiveRecord
       end
 
       # Executes the SQL statement in the context of this connection.
-      # def execute(sql, name = nil, skip_logging = false)
-      #   translate(sql) do |sql, args|
-      #     if (name == :skip_logging) or skip_logging
-      #       @connection.execute(sql, *args)
-      #     else
-      #       log(sql, args, name) do
-      #         @connection.execute(sql, *args)
-      #       end
-      #     end
-      #   end
-      # end
+      def execute(sql, name = nil, skip_logging = false)
+        translate(sql) do |sql, args|
+          if (name == :skip_logging) or skip_logging
+            @connection.execute(sql, *args)
+          else
+            log(sql, args, name) do
+              @connection.execute(sql, *args)
+            end
+          end
+        end
+      end
 
       # Executes +sql+ statement in the context of this connection using
       # +binds+ as the bind substitutes. +name+ is logged along with
