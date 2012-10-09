@@ -575,6 +575,10 @@ module ActiveRecord
         end
       end
 
+      def explain(arel, binds = [])
+        to_sql(arel, binds)
+      end
+
       # Returns the last auto-generated ID from the affected table.
       # def insert(sql, name = nil, pk = nil, id_value = nil, sequence_name = nil, binds = [])
       #   execute(sql, name)
