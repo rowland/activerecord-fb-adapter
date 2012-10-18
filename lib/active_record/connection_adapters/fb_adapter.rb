@@ -152,7 +152,7 @@ module ActiveRecord
     # adapter to report back the +id+ after a successful insert.)
     #
     # === BOOLEAN Domain
-    # Firebird 1.5 does not provide a native +BOOLEAN+ type. But you can easily
+    # Firebird 2.5 does not provide a native +BOOLEAN+ type (Only in Firebird 3.x). But you can easily
     # define a +BOOLEAN+ _domain_ for this purpose, e.g.:
     #
     #  CREATE DOMAIN D_BOOLEAN AS SMALLINT CHECK (VALUE IN (0, 1));
@@ -215,7 +215,7 @@ module ActiveRecord
     # as column names as well.
     #
     # === Migrations
-    # The Fb adapter does not currently support Migrations.
+    # The Fb adapter currently support Migrations.
     #
     # == Connection Options
     # The following options are supported by the Fb adapter.
