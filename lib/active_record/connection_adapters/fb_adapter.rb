@@ -580,10 +580,11 @@ module ActiveRecord
       end
 
       # Returns the last auto-generated ID from the affected table.
-      # def insert(sql, name = nil, pk = nil, id_value = nil, sequence_name = nil, binds = [])
-      #   execute(sql, name)
-      #   id_value
-      # end
+      def insert(arel, name = nil, pk = nil, id_value = nil, sequence_name = nil, binds = [])
+        sql, binds = sql_for_insert(to_sql(arel, binds), pk, id_value, sequence_name, binds)
+        value      = exec_insert(sql, name, binds)
+        id_value
+      end
 
       # Executes the update statement and returns the number of rows affected.
       # alias_method :update, :execute
