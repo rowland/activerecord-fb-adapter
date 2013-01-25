@@ -1,7 +1,7 @@
 load 'activerecord-fb-adapter.gemspec'
-require 'rake/gempackagetask'
+require 'rubygems/package_task'
 
-Rake::GemPackageTask.new(spec) do |pkg|
+Gem::PackageTask.new(spec) do |pkg|
   pkg.need_tar = false
   pkg.need_zip = false
 end
