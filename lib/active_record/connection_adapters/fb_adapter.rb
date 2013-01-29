@@ -169,7 +169,7 @@ module ActiveRecord
     #
     # ...you can add the following line to your <tt>environment.rb</tt> file:
     #
-    #  ActiveRecord::ConnectionAdapters::Fb.boolean_domain = { :true => 'T', :false => 'F' }
+    #  ActiveRecord::ConnectionAdapters::FbAdapter.boolean_domain = { :true => 'T', :false => 'F', :name => 'BOOLEAN', :type => 'char' }
     #
     # === Column Name Case Semantics
     # Firebird and ActiveRecord have somewhat conflicting case semantics for
@@ -503,6 +503,12 @@ module ActiveRecord
 
       def quoted_false # :nodoc:
         quote(boolean_domain[:false])
+      end
+
+      def type_cast(value, column)
+        return super unless value == true || value == false
+
+        value ? quoted_true : quoted_false
       end
 
     private
