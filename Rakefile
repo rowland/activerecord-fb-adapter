@@ -1,4 +1,5 @@
 load 'activerecord-fb-adapter.gemspec'
+require 'rake/dsl_definition'
 require 'rubygems/package_task'
 
 Gem::PackageTask.new(spec) do |pkg|
