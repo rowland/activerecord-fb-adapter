@@ -21,13 +21,8 @@ begin
 rescue
   conn = db.create.connect
 end
-conn.execute "DROP TABLE FOOS" rescue nil
-conn.execute "CREATE TABLE FOOS (ID INT, V INT)"
-conn.execute "CREATE GENERATOR FOOS_SEQ" rescue nil
-conn.execute "SET GENERATOR FOOS_SEQ TO 0"
+
 conn.close
 
 ActiveRecord::Base.establish_connection(config)
 
-class Foo < ActiveRecord::Base
-end

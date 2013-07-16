@@ -22,7 +22,7 @@ module Arel
         ].compact.join ' '
       end
 
-      def visit_Arel_Nodes_UpdateStatement o
+      def visit_Arel_Nodes_UpdateStatement(o)
         [
           "UPDATE #{visit o.relation}",
           ("SET #{o.values.map { |value| visit(value) }.join ', '}" unless o.values.empty?),
@@ -400,10 +400,10 @@ module ActiveRecord
 
     protected
       def translate(sql)
-        sql.gsub!(/\bIN\s+\(NULL\)/i, 'IS NULL')
-        sql.sub!(/\bWHERE\s.*$/im) do |m|
-          m.gsub(/\s=\s*NULL\b/i, ' IS NULL')
-        end
+        # sql.gsub!(/\bIN\s+\(NULL\)/i, 'IS NULL')
+        # sql.sub!(/\bWHERE\s.*$/im) do |m|
+        #   m.gsub(/\s=\s*NULL\b/i, ' IS NULL')
+        # end
         sql.gsub!(/\sIN\s+\([^\)]*\)/mi) do |m|
           m.gsub(/\(([^\)]*)\)/m) { |n| n.gsub(/\@(.*?)\@/m) { |n| "'#{quote_string(Base64.decode64(n[1..-1]))}'" } }
         end

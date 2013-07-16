@@ -1,7 +1,18 @@
 require File.expand_path(File.join(File.dirname(__FILE__), 'test_helper'))
 
+class Foo < ActiveRecord::Base
+end
+
 class LimitsTestCase < Test::Unit::TestCase
   def setup
+    # Foo.logger = Logger.new(STDOUT)
+    conn = Foo.connection.raw_connection
+
+    conn.execute "DROP TABLE FOOS" rescue nil
+    conn.execute "CREATE TABLE FOOS (ID INT, V INT)"
+    conn.execute "CREATE GENERATOR FOOS_SEQ" rescue nil
+    conn.execute "SET GENERATOR FOOS_SEQ TO 0"
+
     Foo.delete_all
     30.times do |i|
       Foo.create(:v => i)
