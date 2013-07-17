@@ -399,16 +399,22 @@ module ActiveRecord
       # end
 
     protected
+      if defined?(Encoding)
+        def decode(s)
+          Base64.decode64(s).force_encoding(@connection.encoding)
+        end
+      else
+        def decode(s)
+          Base64.decode64(s)
+        end
+      end
+
       def translate(sql)
-        # sql.gsub!(/\bIN\s+\(NULL\)/i, 'IS NULL')
-        # sql.sub!(/\bWHERE\s.*$/im) do |m|
-        #   m.gsub(/\s=\s*NULL\b/i, ' IS NULL')
-        # end
         sql.gsub!(/\sIN\s+\([^\)]*\)/mi) do |m|
-          m.gsub(/\(([^\)]*)\)/m) { |n| n.gsub(/\@(.*?)\@/m) { |n| "'#{quote_string(Base64.decode64(n[1..-1]))}'" } }
+          m.gsub(/\(([^\)]*)\)/m) { |n| n.gsub(/\@(.*?)\@/m) { |n| "'#{quote_string(decode(n[1..-1]))}'" } }
         end
         args = []
-        sql.gsub!(/\@(.*?)\@/m) { |m| args << Base64.decode64(m[1..-1]); '?' }
+        sql.gsub!(/\@(.*?)\@/m) { |m| args << decode(m[1..-1]); '?' }
         yield(sql, args) if block_given?
       end
 
