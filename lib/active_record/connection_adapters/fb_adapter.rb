@@ -99,7 +99,12 @@ module ActiveRecord
           sql = "SELECT CAST(#{@default} AS #{column_def}) FROM RDB$DATABASE"
           connection = ActiveRecord::Base.connection
           if connection
-            type_cast connection.select_one(sql)['cast']
+            value = connection.select_one(sql)['cast']
+            if value.acts_like?(:date) or value.acts_like?(:time)
+              nil
+            else
+              type_cast(value)
+            end
           else
             raise ConnectionNotEstablished, "No Firebird connections established."
           end
