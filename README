@@ -1,7 +1,2 @@
-!!!WARNING!!! 
-
-This Adapter is in ALPHA. It WILL break. It is still in early testing.
-
-NOT SUITABLE FOR PRODUCTION at this time.
-
-I will update this notice once I have run a wider selection of tests.
+Although this adapter may not yet have feature parity with the 1st tier databases supported by the Rails developers,
+it has been in production for several months without issues and may be considered stable.
