@@ -884,7 +884,7 @@ module ActiveRecord
       end
 
       def float_to_sql(limit)
-        if limit <= 4
+        if limit.nil? || limit <= 4
           'float'
         else
           'double precision'
