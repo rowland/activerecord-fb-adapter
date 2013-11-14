@@ -35,7 +35,7 @@ module Arel
         "ROWS #{visit(o.expr)}"
       end
 
-      def visit_Arel_Nodes_Offseto o, a
+      def visit_Arel_Nodes_Offset o, a
         "SKIP #{visit(o.expr)}"
       end
 
