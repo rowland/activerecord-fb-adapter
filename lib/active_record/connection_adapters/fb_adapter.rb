@@ -550,7 +550,7 @@ module ActiveRecord
       # Returns an array of record hashes with the column names as keys and
       # column values as values.
       def select_all(arel, name = nil, binds = [])
-        select(to_sql(arel, binds), name, binds)
+        add_column_types(select(to_sql(arel, binds), name, binds))
       end
 
       # Returns an array of arrays containing the field values.
@@ -694,6 +694,15 @@ module ActiveRecord
       # end
 
     protected
+      # add column_types method returns empty hash, requred for rails 4 compatibility
+      def add_column_types obj
+        class << obj
+          def column_types
+            {}
+          end
+        end
+        obj
+      end
       # Returns an array of record hashes with the column names as keys and
       # column values as values.
       def select(sql, name = nil, binds = [])
