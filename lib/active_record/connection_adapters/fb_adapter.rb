@@ -1,4 +1,4 @@
-# Rails 3-specific database adapter for Firebird (http://firebirdsql.org)
+# Rails 3 & 4 specific database adapter for Firebird (http://firebirdsql.org)
 # Author: Brent Rowland <rowland@rowlandresearch.com>
 # Based originally on FireRuby extension by Ken Kunz <kennethkunz@gmail.com>
 
