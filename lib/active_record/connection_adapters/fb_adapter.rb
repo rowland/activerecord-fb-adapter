@@ -11,8 +11,8 @@ module Arel
     class FB < Arel::Visitors::ToSql
     protected
 
-      def visit_Arel_Nodes_SelectStatement o, a
-        select_core = o.cores.map { |x| visit_Arel_Nodes_SelectCore(x, a) }.join
+      def visit_Arel_Nodes_SelectStatement o, *a
+        select_core = o.cores.map { |x| visit_Arel_Nodes_SelectCore(x, *a) }.join
         select_core.sub!(/^\s*SELECT/i, "SELECT #{visit(o.offset)}") if o.offset && !o.limit
         [
           select_core,
@@ -22,7 +22,7 @@ module Arel
         ].compact.join ' '
       end
 
-      def visit_Arel_Nodes_UpdateStatement o, a
+      def visit_Arel_Nodes_UpdateStatement o, *a
         [
           "UPDATE #{visit o.relation}",
           ("SET #{o.values.map { |value| visit(value) }.join ', '}" unless o.values.empty?),
@@ -31,11 +31,11 @@ module Arel
         ].compact.join ' '
       end
 
-      def visit_Arel_Nodes_Limit o, a
+      def visit_Arel_Nodes_Limit o, *a
         "ROWS #{visit(o.expr)}"
       end
 
-      def visit_Arel_Nodes_Offset o, a
+      def visit_Arel_Nodes_Offset o, *a
         "SKIP #{visit(o.expr)}"
       end
 
