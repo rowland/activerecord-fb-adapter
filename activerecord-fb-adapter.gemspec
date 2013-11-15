@@ -4,10 +4,11 @@ def spec
   Gem::Specification.new do |s|
     s.author = "Brent Rowland"
     s.name = "activerecord-fb-adapter"
-    s.version = "0.7.9"
-    s.date = "2013-11-09"
+    s.version = "0.8.0"
+    s.date = "2013-11-14"
     s.summary = "ActiveRecord Firebird Adapter for Rails 3"
     s.summary = "ActiveRecord Firebird Adapter for Rails 3. Unlike fb_adapter for Rails 1.x and 2.x, this version attempts to support migrations."
+    s.licenses = ["MIT"]
     s.requirements = "Firebird library fb"
     s.require_path = 'lib'
     s.email = "rowland@rowlandresearch.com"
