@@ -77,8 +77,14 @@ module ActiveRecord
         @firebird_type = Fb::SqlType.from_code(type, sub_type || 0)
         super(name.downcase, nil, @firebird_type, !null_flag)
         @default = parse_default(default_source) if default_source
-        @limit = (@firebird_type == 'BLOB') ? 10 * 1024 * 1024 : length
-        @domain, @sub_type, @precision, @scale = domain, sub_type, precision, scale
+        case @firebird_type
+          when 'VARCHAR'
+            @limit = length
+          when 'BLOB'
+            @limit = 10 * 1024 * 1024
+        end
+        @domain, @sub_type = domain, sub_type
+        @precision, @scale = precision, scale if ['DECIMAL', 'NUMERIC'].include? @firebird_type
       end
 
       def type
