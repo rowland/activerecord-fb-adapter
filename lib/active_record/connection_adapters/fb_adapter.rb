@@ -830,6 +830,11 @@ module ActiveRecord
         add_column_sql = "ALTER TABLE #{quote_table_name(table_name)} ADD #{quote_column_name(column_name)} #{type_to_sql(type, options[:limit], options[:precision], options[:scale])}"
         add_column_options!(add_column_sql, options)
         execute(add_column_sql)
+        if options[:position]
+          # position is 1-based but add 1 to skip id column
+          alter_position_sql = "ALTER TABLE #{quote_table_name(table_name)} ALTER COLUMN #{quote_column_name(column_name)} POSITION #{options[:position] + 1}"
+          execute(alter_position_sql)
+        end
       end
 
       # Changes the column's definition according to the new options.
