@@ -84,7 +84,7 @@ module ActiveRecord
             @limit = 10 * 1024 * 1024
         end
         @domain, @sub_type = domain, sub_type
-        @precision, @scale = precision, scale if ['DECIMAL', 'NUMERIC'].include? @firebird_type
+        @precision, @scale = precision, -scale if ['DECIMAL', 'NUMERIC'].include? @firebird_type
       end
 
       def type
@@ -783,7 +783,7 @@ module ActiveRecord
       def columns(table_name, name = nil)
         sql = <<-END_SQL
           SELECT r.rdb$field_name, r.rdb$field_source, f.rdb$field_type, f.rdb$field_sub_type,
-                 f.rdb$field_length, f.rdb$field_precision, -(f.rdb$field_scale),
+                 f.rdb$field_length, f.rdb$field_precision, f.rdb$field_scale,
                  COALESCE(r.rdb$default_source, f.rdb$default_source) rdb$default_source,
                  COALESCE(r.rdb$null_flag, f.rdb$null_flag) rdb$null_flag
           FROM rdb$relation_fields r
