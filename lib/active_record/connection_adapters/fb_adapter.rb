@@ -84,7 +84,7 @@ module ActiveRecord
             @limit = 10 * 1024 * 1024
         end
         @domain, @sub_type = domain, sub_type
-        @precision, @scale = precision, -scale if ['DECIMAL', 'NUMERIC'].include? @firebird_type
+        @precision, @scale = precision, scale.abs if ['DECIMAL', 'NUMERIC'].include? @firebird_type
       end
 
       def type
