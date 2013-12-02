@@ -77,8 +77,14 @@ module ActiveRecord
         @firebird_type = Fb::SqlType.from_code(type, sub_type || 0)
         super(name.downcase, nil, @firebird_type, !null_flag)
         @default = parse_default(default_source) if default_source
-        @limit = (@firebird_type == 'BLOB') ? 10 * 1024 * 1024 : length
-        @domain, @sub_type, @precision, @scale = domain, sub_type, precision, scale
+        case @firebird_type
+          when 'VARCHAR'
+            @limit = length
+          when 'BLOB'
+            @limit = 10 * 1024 * 1024
+        end
+        @domain, @sub_type = domain, sub_type
+        @precision, @scale = precision, scale.abs if ['DECIMAL', 'NUMERIC'].include? @firebird_type
       end
 
       def type
@@ -824,6 +830,11 @@ module ActiveRecord
         add_column_sql = "ALTER TABLE #{quote_table_name(table_name)} ADD #{quote_column_name(column_name)} #{type_to_sql(type, options[:limit], options[:precision], options[:scale])}"
         add_column_options!(add_column_sql, options)
         execute(add_column_sql)
+        if options[:position]
+          # position is 1-based but add 1 to skip id column
+          alter_position_sql = "ALTER TABLE #{quote_table_name(table_name)} ALTER COLUMN #{quote_column_name(column_name)} POSITION #{options[:position] + 1}"
+          execute(alter_position_sql)
+        end
       end
 
       # Changes the column's definition according to the new options.
