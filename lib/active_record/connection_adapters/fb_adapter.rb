@@ -78,13 +78,12 @@ module ActiveRecord
         super(name.downcase, nil, @firebird_type, !null_flag)
         @default = parse_default(default_source) if default_source
         case @firebird_type
-          when 'VARCHAR'
+          when 'VARCHAR', 'CHAR'
             @limit = length
-          when 'BLOB'
-            @limit = 10 * 1024 * 1024
+          when 'DECIMAL', 'NUMERIC'
+            @precision, @scale = precision, scale.abs
         end
         @domain, @sub_type = domain, sub_type
-        @precision, @scale = precision, scale.abs if ['DECIMAL', 'NUMERIC'].include? @firebird_type
       end
 
       def type
