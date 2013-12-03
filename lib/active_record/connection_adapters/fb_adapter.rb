@@ -72,6 +72,12 @@ module ActiveRecord
   end
 
   module ConnectionAdapters # :nodoc:
+    class FbArray < Array
+      def column_types
+        {}
+      end
+    end
+
     class FbColumn < Column # :nodoc:
       def initialize(name, domain, type, sub_type, length, precision, scale, default_source, null_flag)
         @firebird_type = Fb::SqlType.from_code(type, sub_type || 0)
@@ -701,13 +707,9 @@ module ActiveRecord
     protected
       # add column_types method returns empty hash, requred for rails 4 compatibility
       def add_column_types obj
-        class << obj
-          def column_types
-            {}
-          end
-        end
-        obj
+        FbArray.new(obj)
       end
+
       # Returns an array of record hashes with the column names as keys and
       # column values as values.
       def select(sql, name = nil, binds = [])
