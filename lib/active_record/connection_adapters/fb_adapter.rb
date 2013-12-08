@@ -76,6 +76,11 @@ module ActiveRecord
       def column_types
         {}
       end
+      
+      def columns
+        self.first.keys
+      end
+
     end
 
     class FbColumn < Column # :nodoc:
