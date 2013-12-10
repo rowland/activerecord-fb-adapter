@@ -80,7 +80,6 @@ module ActiveRecord
       def columns
         self.first.keys
       end
-
     end
 
     class FbColumn < Column # :nodoc:
@@ -518,6 +517,10 @@ module ActiveRecord
       def quote_column_name(column_name) # :nodoc:
         %Q("#{ar_to_fb_case(column_name.to_s)}")
       end
+
+      def quote_table_name_for_assignment(table, attr)
+        quote_column_name(attr)
+      end if ::ActiveRecord::VERSION::MAJOR >= 4
 
       # Quotes the table name. Defaults to column name quoting.
       # def quote_table_name(table_name)
