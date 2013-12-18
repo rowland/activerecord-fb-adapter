@@ -853,7 +853,7 @@ module ActiveRecord
       #  change_column(:accounts, :description, :text)
       def change_column(table_name, column_name, type, options = {})
         sql = "ALTER TABLE #{quote_table_name(table_name)} ALTER COLUMN #{quote_column_name(column_name)} TYPE #{type_to_sql(type, options[:limit], options[:precision], options[:scale])}"
-        sql = add_column_options(sql, options)
+        add_column_options!(sql, options)
         execute(sql)
       end
 
