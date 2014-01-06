@@ -7,7 +7,7 @@ def spec
     s.version = "0.8.2"
     s.date = "2013-12-03"
     s.summary = "ActiveRecord Firebird Adapter for Rails 3 and 4."
-    s.summary = "ActiveRecord Firebird Adapter for Rails 3 and 4. Unlike fb_adapter for Rails 1.x and 2.x, this version attempts to support migrations."
+    s.summary = "ActiveRecord Firebird Adapter for Rails 3 and 4 with support for migrations."
     s.licenses = ["MIT"]
     s.requirements = "Firebird library fb"
     s.require_path = 'lib'
