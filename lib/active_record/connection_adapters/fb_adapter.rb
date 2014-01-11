@@ -78,7 +78,7 @@ module ActiveRecord
       end
       
       def columns
-        self.first.keys
+        self.any? ? self.first.keys : []
       end
     end
 
