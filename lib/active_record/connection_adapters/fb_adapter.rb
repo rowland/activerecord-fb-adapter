@@ -721,15 +721,11 @@ module ActiveRecord
       # Returns an array of record hashes with the column names as keys and
       # column values as values.
       def select(sql, name = nil, binds = [])
-        if binds.empty?
-          translate(sql) do |sql, args|
-            log(expand(sql, args), name) do
-              @connection.query(:hash, sql, *args)
-            end
+        translate(sql) do |sql, args|
+          unless binds.empty?
+            args = binds.map { |col, val| type_cast(val, col) } + args
           end
-        else
-          log(sql, name, binds) do
-            args = binds.map { |col, val| type_cast(val, col) }
+          log(expand(sql, args), name) do
             @connection.query(:hash, sql, *args)
           end
         end
