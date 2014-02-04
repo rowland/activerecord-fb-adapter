@@ -834,7 +834,13 @@ module ActiveRecord
       def add_column(table_name, column_name, type, options = {})
         add_column_sql = "ALTER TABLE #{quote_table_name(table_name)} ADD #{quote_column_name(column_name)} #{type_to_sql(type, options[:limit], options[:precision], options[:scale])}"
         add_column_options!(add_column_sql, options)
-        execute(add_column_sql)
+        begin
+          execute(add_column_sql)
+        rescue
+          raise unless non_existent_domain_error?
+          create_boolean_domain
+          execute(add_column_sql)
+        end
         if options[:position]
           # position is 1-based but add 1 to skip id column
           alter_position_sql = "ALTER TABLE #{quote_table_name(table_name)} ALTER COLUMN #{quote_column_name(column_name)} POSITION #{options[:position] + 1}"
