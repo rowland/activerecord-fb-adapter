@@ -597,16 +597,14 @@ module ActiveRecord
       # +binds+ as the bind substitutes. +name+ is logged along with
       # the executed +sql+ statement.
       def exec_query(sql, name = 'SQL', binds = [])
-        if binds.empty?
-          translate(sql) do |sql, args|
-            log(expand(sql, args), name) do
-              @connection.execute(sql, *args)
-            end
+        translate(sql) do |sql, args|
+          unless binds.empty?
+            args = binds.map { |col, val| type_cast(val, col) } + args
           end
-        else
-          log(sql, name, binds) do
-            args = binds.map { |col, val| type_cast(val, col) }
-            @connection.execute(sql, *args)
+          log(expand(sql, args), name) do
+            fields, rows = @connection.execute(sql, *args) { |cursor| [cursor.fields, cursor.fetchall] }
+            cols = fields.map { |f| f.name }
+            ActiveRecord::Result.new(cols, rows)
           end
         end
       end
