@@ -603,7 +603,7 @@ module ActiveRecord
           end
           log(expand(sql, args), name) do
             fields, rows = @connection.execute(sql, *args) { |cursor| [cursor.fields, cursor.fetchall] }
-            cols = fields.map { |f| f.name }
+            cols = fields.map { |f| f.name } if fields.respond_to?(:map)
             ActiveRecord::Result.new(cols, rows)
           end
         end
