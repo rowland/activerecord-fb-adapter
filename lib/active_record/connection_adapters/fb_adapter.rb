@@ -602,9 +602,13 @@ module ActiveRecord
             args = binds.map { |col, val| type_cast(val, col) } + args
           end
           log(expand(sql, args), name) do
-            fields, rows = @connection.execute(sql, *args) { |cursor| [cursor.fields, cursor.fetchall] }
-            cols = fields.map { |f| f.name } if fields.respond_to?(:map)
-            ActiveRecord::Result.new(cols, rows)
+            result, rows = @connection.execute(sql, *args) { |cursor| [cursor.fields, cursor.fetchall] }
+            if result.respond_to?(:map)
+              cols = result.map { |col| col.name } 
+              ActiveRecord::Result.new(cols, rows)
+            else
+              result
+            end
           end
         end
       end
