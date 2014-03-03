@@ -685,9 +685,9 @@ module ActiveRecord
         end
         sql
       end
-
-      def default_sequence_name(table_name, column=nil)
-        "#{table_name}_seq"
+      
+      def default_sequence_name(table_name, column = nil)
+        "#{table_name.to_s[0, table_name_length - 4]}_seq"
       end
 
       # Set the sequence to the max value of the table's column.
