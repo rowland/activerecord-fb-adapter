@@ -257,9 +257,9 @@ module ActiveRecord
       @@boolean_domain = { :true => 1, :false => 0, :name => 'BOOLEAN', :type => 'integer' }
       cattr_accessor :boolean_domain
 
-      def initialize(connection, logger, connection_params=nil)
+      def initialize(connection, logger, config=nil)
         super(connection, logger)
-        @connection_params = connection_params
+        @config = config
         @visitor = Arel::Visitors::FB.new(self)
       end
 
@@ -343,7 +343,7 @@ module ActiveRecord
       # new connection with the database.
       def reconnect!
         disconnect!
-        @connection = Fb::Database.connect(@connection_params)
+        @connection = Fb::Database.connect(@config)
       end
 
       # Disconnects from the database if already connected. Otherwise, this
