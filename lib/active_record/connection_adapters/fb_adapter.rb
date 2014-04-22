@@ -299,8 +299,7 @@ module ActiveRecord
         false
       end
 
-      # Does this adapter support savepoints? PostgreSQL and MySQL do, SQLite
-      # does not.
+      # Does this adapter support savepoints? FirebirdSQL does
       def supports_savepoints?
         true
       end
@@ -363,10 +362,10 @@ module ActiveRecord
       end
 
       # Returns true if its required to reload the connection between requests for development mode.
-      # This is not the case for Ruby/MySQL and it's not necessary for any adapters except SQLite.
-      # def requires_reloading?
-      #   false
-      # end
+      # This is not the case for FirebirdSQL and it's not necessary for any adapters except SQLite.
+      def requires_reloading?
+         false
+      end
 
       # Checks whether the connection to the database is still active (i.e. not stale).
       # This is done under the hood by calling <tt>active?</tt>. If the connection
