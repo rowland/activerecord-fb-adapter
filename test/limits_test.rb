@@ -11,8 +11,8 @@ class LimitsTestCase < Test::Unit::TestCase
 
     conn.execute "DROP TABLE FOOS" rescue nil
     conn.execute "CREATE TABLE FOOS (ID INT, V INT)"
-    conn.execute "CREATE GENERATOR FOOS_SEQ" rescue nil
-    conn.execute "SET GENERATOR FOOS_SEQ TO 0"
+    conn.execute "CREATE SEQUENCE FOOS_SEQ" rescue nil
+    conn.execute "ALTER SEQUENCE FOOS_SEQ RESTART WITH 0"
 
     Foo.delete_all
     30.times do |i|
