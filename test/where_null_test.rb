@@ -11,8 +11,8 @@ class WhereNullTestCase < Test::Unit::TestCase
 
     conn.execute "DROP TABLE BARS" rescue nil
     conn.execute "CREATE TABLE BARS (ID INT PRIMARY KEY, V1 VARCHAR(255), V2 VARCHAR(255), V3 VARCHAR(255))"
-    conn.execute "CREATE GENERATOR BARS_SEQ" rescue nil
-    conn.execute "SET GENERATOR BARS_SEQ TO 0"
+    conn.execute "CREATE SEQUENCE FOOS_SEQ" rescue nil
+    conn.execute "ALTER SEQUENCE FOOS_SEQ RESTART WITH 0"
   end
 
   def test_update_with_null
