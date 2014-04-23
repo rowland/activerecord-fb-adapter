@@ -3,7 +3,6 @@
 # Based originally on FireRuby extension by Ken Kunz <kennethkunz@gmail.com>
 
 require 'active_record/connection_adapters/abstract_adapter'
-# require 'active_support/core_ext/kernel/requires'
 require 'base64'
 
 module Arel
