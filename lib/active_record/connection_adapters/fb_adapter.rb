@@ -160,7 +160,7 @@ module ActiveRecord
     #
     # === Sequence (Generator) Names
     # The Fb adapter supports the same approach adopted for the Oracle
-    # adapter. See ActiveRecord::Base#set_sequence_name for more details.
+    # adapter. See ActiveRecord::ModelSchema::ClassMethods#sequence_name= for more details.
     #
     # Note that in general there is no need to create a <tt>BEFORE INSERT</tt>
     # trigger corresponding to a Firebird sequence generator when using
