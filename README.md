@@ -23,11 +23,8 @@ cd firebird_test
 3) Edit the project Gemfile and add the **activerecord-fb-adapter** gem:
 
 ```ruby
-source 'https://rubygems.org'
-
 gem 'activerecord-fb-adapter'
 
-(...)
 ```
 
 Then run:
