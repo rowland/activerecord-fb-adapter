@@ -24,7 +24,6 @@ cd firebird_test
 
 ```ruby
 gem 'activerecord-fb-adapter'
-
 ```
 
 Then run:
@@ -77,22 +76,6 @@ chmod o+w db
 which will add write permission to "others" group.
 
 6) Now you can start generating scaffolds or models and rails will create the corresponding migrations. Use **bundle exec rake db:migrate** and **bundle exec rake db:rollback** for migrating the database; this will update your **db/schema.rb** file automatically.
-
-## Changelog
-
-#### 0.8.2
-- Fix "singleton can't be dumped" marshaling error.
-
-#### 0.8.1
-- Set limit for CHAR types, but no longer needed for BLOBs.
-- Fix columns parameters only set when needed in FbColumn#initialize.
-- Added position option to add_column migration:
-
-```ruby
-add_column :table_name, :column_name, :data_type, { position: 3 }
-```
-#### 0.8.0
-- Rails 4.x support.
 
 ## License
 It is free software, and may be redistributed under the terms specified in the MIT-LICENSE file.
