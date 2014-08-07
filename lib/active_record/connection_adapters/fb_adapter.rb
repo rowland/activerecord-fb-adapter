@@ -54,7 +54,7 @@ module ActiveRecord
       config = config.symbolize_keys.merge(:downcase_names => true)
       unless config.has_key?(:database)
         raise ArgumentError, "No database specified. Missing argument: database."
-      end      
+      end
       config[:database] = File.expand_path(config[:database]) if config[:host] =~ /localhost/i
       config[:database] = "#{config[:host]}/#{config[:port] || 3050}:#{config[:database]}" if config[:host]
       require 'fb'
@@ -75,7 +75,7 @@ module ActiveRecord
       def column_types
         {}
       end
-      
+
       def columns
         self.any? ? self.first.keys : []
       end
@@ -513,7 +513,11 @@ module ActiveRecord
       end
 
       def quote_column_name(column_name) # :nodoc:
-        %Q("#{ar_to_fb_case(column_name.to_s)}")
+        if @connection.dialect == 1
+          %Q(#{ar_to_fb_case(column_name.to_s)})
+        else
+          %Q("#{ar_to_fb_case(column_name.to_s)}")
+        end
       end
 
       def quote_table_name_for_assignment(table, attr)
@@ -602,7 +606,7 @@ module ActiveRecord
           log(expand(sql, args), name) do
             result, rows = @connection.execute(sql, *args) { |cursor| [cursor.fields, cursor.fetchall] }
             if result.respond_to?(:map)
-              cols = result.map { |col| col.name } 
+              cols = result.map { |col| col.name }
               ActiveRecord::Result.new(cols, rows)
             else
               result
@@ -683,7 +687,7 @@ module ActiveRecord
         end
         sql
       end
-      
+
       def default_sequence_name(table_name, column = nil)
         "#{table_name.to_s[0, table_name_length - 4]}_seq"
       end
