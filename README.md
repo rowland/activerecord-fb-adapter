@@ -32,7 +32,7 @@ Then run:
 bundle update
 ```
 
-which will make bundler to get the gem with it's only dependency: the Fb gem which is "native" (has C code) and will be compiled the first time. Be sure you have a Firebird installation with access to the "INTERBASE.H" file for this to succeed.
+which will make bundler to get the gem with it's only dependency: the Fb gem which is "native" (has C code) and will be compiled the first time. Be sure you have a Firebird installation with access to the "ibase.h" file for this to succeed.
 
 4) Edit the **database.yml** for configuring your database connection:
 
