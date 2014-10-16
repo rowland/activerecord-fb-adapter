@@ -7,7 +7,7 @@ This is the ActiveRecord adapter for working with the [Firebird SQL Server](http
 
 - Datatypes: string, integer, datetime, boolean, float, decimal, text (blob).
 - Rails migrations and db/schema.rb generation.
-- Linux and Windows supported (OS X somebody?).
+- Linux, OS X, and Windows supported.
 
 ## Getting started
 

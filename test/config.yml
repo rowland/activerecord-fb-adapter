@@ -1,0 +1,19 @@
+default_connection: fb
+
+default_connection_info: &default_connection_info
+  adapter: fb
+  host: <%= ENV['ACTIVERECORD_UNITTEST_HOST'] || 'localhost' %>
+  database: db/activerecord_test.fdb
+  username: <%= ENV['ACTIVERECORD_UNITTEST_USER'] || 'SYSDBA' %>
+  password: <%= ENV['ACTIVERECORD_UNITTEST_PASS'] || 'masterkey' %>
+  charset: NONE
+  encoding: UTF-8
+  create: true
+
+connections:
+  fb:
+    arunit:
+      <<: *default_connection_info
+    arunit2:
+      <<: *default_connection_info
+      database: db/activerecord_unittest2.fdb
