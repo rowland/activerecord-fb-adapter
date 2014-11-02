@@ -87,10 +87,10 @@ module ActiveRecord
         super(name.downcase, nil, @firebird_type, !null_flag)
         @default = parse_default(default_source) if default_source
         case @firebird_type
-          when 'VARCHAR', 'CHAR'
-            @limit = length
-          when 'DECIMAL', 'NUMERIC'
-            @precision, @scale = precision, scale.abs
+        when 'VARCHAR', 'CHAR'
+          @limit = length
+        when 'DECIMAL', 'NUMERIC'
+          @precision, @scale = precision, scale.abs
         end
         @domain, @sub_type = domain, sub_type
       end
@@ -137,10 +137,10 @@ module ActiveRecord
 
       def column_def
         case @firebird_type
-          when 'CHAR', 'VARCHAR'    then "#{@firebird_type}(#{@limit})"
-          when 'NUMERIC', 'DECIMAL' then "#{@firebird_type}(#{@precision},#{@scale.abs})"
-          #when 'DOUBLE'             then "DOUBLE PRECISION"
-          else @firebird_type
+        when 'CHAR', 'VARCHAR'    then "#{@firebird_type}(#{@limit})"
+        when 'NUMERIC', 'DECIMAL' then "#{@firebird_type}(#{@precision},#{@scale.abs})"
+        #when 'DOUBLE'             then "DOUBLE PRECISION"
+        else @firebird_type
         end
       end
 
@@ -689,7 +689,7 @@ module ActiveRecord
       end
 
       def default_sequence_name(table_name, column = nil)
-        "#{table_name.to_s[0, table_name_length - 4]}_seq"
+        "#{table_name.to_s.tr('-', '_')[0, table_name_length - 4]}_seq"
       end
 
       # Set the sequence to the max value of the table's column.
@@ -819,7 +819,7 @@ module ActiveRecord
           create_boolean_domain
           super
         end
-        unless options[:id] == false or options[:sequence] == false
+        unless options[:id] == false || options[:sequence] == false
           sequence_name = options[:sequence] || default_sequence_name(name)
           create_sequence(sequence_name)
         end
@@ -831,6 +831,20 @@ module ActiveRecord
           sequence_name = options[:sequence] || default_sequence_name(name)
           drop_sequence(sequence_name) if sequence_exists?(sequence_name)
         end
+      end
+
+      # Creates a sequence
+      # ===== Examples
+      #  create_sequence('DOGS_SEQ')
+      def create_sequence(sequence_name)
+        execute("CREATE SEQUENCE #{sequence_name}") rescue nil
+      end
+
+      # Drops a sequence
+      # ===== Examples
+      #  drop_sequence('DOGS_SEQ')
+      def drop_sequence(sequence_name)
+        execute("DROP SEQUENCE #{sequence_name}") rescue nil
       end
 
       # Adds a new column to the named table.
@@ -936,14 +950,6 @@ module ActiveRecord
           CHECK (VALUE IN (#{quoted_true}, #{quoted_false}) OR VALUE IS NULL)
         end_sql
         execute(sql)
-      end
-
-      def create_sequence(sequence_name)
-        execute("CREATE SEQUENCE #{sequence_name}")
-      end
-
-      def drop_sequence(sequence_name)
-        execute("DROP SEQUENCE #{sequence_name}")
       end
 
       def sequence_exists?(sequence_name)

@@ -11,5 +11,7 @@ Gem::Specification.new do |s|
   s.homepage = "http://github.com/rowland/activerecord-fb-adapter"
   s.has_rdoc = false
   s.files = Dir.glob('lib/active_record/connection_adapters/*')
-  s.add_dependency("fb", ">= 0.7.1")
+
+  s.add_dependency("fb", ">= 0.7.4")
+  s.add_dependency('activerecord', '>= 3.2.0')
 end
