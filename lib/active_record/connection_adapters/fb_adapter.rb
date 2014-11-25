@@ -128,11 +128,11 @@ module ActiveRecord
       def initialize(connection, logger, config=nil)
         super(connection, logger)
         @config = config
-        @visitor = Arel::Visitors::FB.new(self)
+        @visitor = Arel::Visitors::Fb.new(self)
       end
 
       def self.visitor_for(pool) # :nodoc:
-        Arel::Visitors::FB.new(pool)
+        Arel::Visitors::Fb.new(pool)
       end
 
       # Returns the human-readable name of the adapter.  Use mixed case - one

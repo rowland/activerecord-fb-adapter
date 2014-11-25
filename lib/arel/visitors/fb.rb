@@ -1,7 +1,7 @@
 module Arel
   module Visitors
-    class FB < Arel::Visitors::ToSql
-    protected
+    class Fb < Arel::Visitors::ToSql
+      private
 
       def visit_Arel_Nodes_SelectStatement o, *a
         select_core = o.cores.map { |x| visit_Arel_Nodes_SelectCore(x, *a) }.join
@@ -31,7 +31,8 @@ module Arel
         "SKIP #{visit(o.expr)}"
       end
 
-    private
+      # Firebird helpers
+
       def limit_offset(o)
         "ROWS #{visit(o.offset.expr) + 1} TO #{visit(o.offset.expr) + visit(o.limit.expr)}"
       end
@@ -39,4 +40,4 @@ module Arel
   end
 end
 
-Arel::Visitors::VISITORS['fb'] = Arel::Visitors::FB
+Arel::Visitors::VISITORS['fb'] = Arel::Visitors::Fb
