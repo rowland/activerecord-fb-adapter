@@ -190,13 +190,6 @@ module ActiveRecord
         1499
       end
 
-      # REFERENTIAL INTEGRITY ====================================
-
-      # Override to turn off referential integrity while executing <tt>&block</tt>.
-      # def disable_referential_integrity
-      #   yield
-      # end
-
       # CONNECTION MANAGEMENT ====================================
 
       # Checks whether the connection to the database is still active. This includes
@@ -221,6 +214,7 @@ module ActiveRecord
       # Disconnects from the database if already connected. Otherwise, this
       # method does nothing.
       def disconnect!
+        super
         @connection.close rescue nil
       end
 
@@ -237,60 +231,23 @@ module ActiveRecord
       # Returns true if its required to reload the connection between requests for development mode.
       # This is not the case for FirebirdSQL and it's not necessary for any adapters except SQLite.
       def requires_reloading?
-         false
+        false
       end
 
-      # Checks whether the connection to the database is still active (i.e. not stale).
-      # This is done under the hood by calling <tt>active?</tt>. If the connection
-      # is no longer active, then this method will reconnect to the database.
-      # def verify!(*ignored)
-      #   reconnect! unless active?
-      # end
-
-      # Provides access to the underlying database driver for this adapter. For
-      # example, this method returns a Mysql object in case of MysqlAdapter,
-      # and a PGconn object in case of PostgreSQLAdapter.
-      #
-      # This is useful for when you need to call a proprietary method such as
-      # PostgreSQL's lo_* methods.
-      # def raw_connection
-      #   @connection
-      # end
-
-      # def open_transactions
-      #   @open_transactions ||= 0
-      # end
-
-      # def increment_open_transactions
-      #   @open_transactions ||= 0
-      #   @open_transactions += 1
-      # end
-
-      # def decrement_open_transactions
-      #   @open_transactions -= 1
-      # end
-
-      # def transaction_joinable=(joinable)
-      #   @transaction_joinable = joinable
-      # end
-
-      def create_savepoint
-        execute("SAVEPOINT #{current_savepoint_name}")
+      def create_savepoint(name = current_savepoint_name)
+        execute("SAVEPOINT #{name}")
       end
 
-      def rollback_to_savepoint
-        execute("ROLLBACK TO SAVEPOINT #{current_savepoint_name}")
+      def rollback_to_savepoint(name = current_savepoint_name)
+        execute("ROLLBACK TO SAVEPOINT #{name}")
       end
 
-      def release_savepoint
-        execute("RELEASE SAVEPOINT #{current_savepoint_name}")
+      def release_savepoint(name = current_savepoint_name)
+        execute("RELEASE SAVEPOINT #{name}")
       end
 
-      # def current_savepoint_name
-      #   "active_record_#{open_transactions}"
-      # end
+      protected
 
-    protected
       if defined?(Encoding)
         def decode(s)
           Base64.decode64(s).force_encoding(@connection.encoding)
@@ -303,7 +260,11 @@ module ActiveRecord
 
       def translate(sql)
         sql.gsub!(/\sIN\s+\([^\)]*\)/mi) do |m|
-          m.gsub(/\(([^\)]*)\)/m) { |n| n.gsub(/\@(.*?)\@/m) { |n| "'#{quote_string(decode(n[1..-1]))}'" } }
+          m.gsub(/\(([^\)]*)\)/m) do |n|
+            n.gsub(/\@(.*?)\@/m) do |o|
+              "'#{quote_string(decode(o[1..-1]))}'"
+            end
+          end
         end
         args = []
         sql.gsub!(/\@(.*?)\@/m) { |m| args << decode(m[1..-1]); '?' }
@@ -313,10 +274,6 @@ module ActiveRecord
       def expand(sql, args)
         ([sql] + args) * ', '
       end
-
-      # def log(sql, args, name, &block)
-      #   super(expand(sql, args), name, &block)
-      # end
 
       def translate_exception(e, message)
         case e.message
