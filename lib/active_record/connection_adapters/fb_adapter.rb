@@ -17,16 +17,6 @@ require 'active_record/fb_base'
 
 module ActiveRecord
   module ConnectionAdapters # :nodoc:
-    class FbArray < Array
-      def column_types
-        {}
-      end
-
-      def columns
-        self.any? ? self.first.keys : []
-      end
-    end
-
     # The Fb adapter relies on the Fb extension.
     #
     # == Usage Notes

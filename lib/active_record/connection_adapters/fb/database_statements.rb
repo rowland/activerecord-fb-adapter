@@ -2,37 +2,20 @@ module ActiveRecord
   module ConnectionAdapters
     module Fb
       module DatabaseStatements
-        # Returns an array of record hashes with the column names as keys and
-        # column values as values.
-        # def select_all(sql, name = nil, format = :hash) # :nodoc:
-        #   translate(sql) do |sql, args|
-        #     log(sql, args, name) do
-        #       @connection.query(format, sql, *args)
-        #     end
-        #   end
-        # end
-        # Returns an array of record hashes with the column names as keys and
-        # column values as values.
-        def select_all(arel, name = nil, binds = [])
-          add_column_types(select(to_sql(arel, binds), name, binds))
-        end
-
         # Returns an array of arrays containing the field values.
         # Order is the same as that returned by +columns+.
-        def select_rows(sql, name = nil)
-          log(sql, name) do
-            @connection.query(:array, sql)
-          end
+        def select_rows(sql, name = nil, binds = [])
+          exec_query(sql, name, binds).to_a.map(&:values)
         end
 
         # Executes the SQL statement in the context of this connection.
         def execute(sql, name = nil, skip_logging = false)
-          translate(sql) do |sql, args|
-            if (name == :skip_logging) or skip_logging
-              @connection.execute(sql, *args)
+          translate(sql) do |translated_sql, args|
+            if (name == :skip_logging) || skip_logging
+              @connection.execute(translated_sql, *args)
             else
               log(sql, args, name) do
-                @connection.execute(sql, *args)
+                @connection.execute(translated_sql, *args)
               end
             end
           end
@@ -42,18 +25,18 @@ module ActiveRecord
         # +binds+ as the bind substitutes. +name+ is logged along with
         # the executed +sql+ statement.
         def exec_query(sql, name = 'SQL', binds = [])
-          translate(sql) do |sql, args|
-            unless binds.empty?
-              args = binds.map { |col, val| type_cast(val, col) } + args
-            end
-            log(expand(sql, args), name) do
-              result, rows = @connection.execute(sql, *args) { |cursor| [cursor.fields, cursor.fetchall] }
-              if result.respond_to?(:map)
-                cols = result.map { |col| col.name }
-                ActiveRecord::Result.new(cols, rows)
-              else
-                result
+          translate(sql) do |translated_sql, args|
+            args = binds.map { |col, val|
+              type_cast(val, col)
+            }.concat(args) unless binds.empty?
+
+            log(expand(translated_sql, args), name) do
+              result, rows = @connection.execute(translated_sql, *args) do |cursor|
+                [cursor.fields, cursor.fetchall]
               end
+              next result unless result.respond_to?(:map)
+              cols = result.map { |col| col.name }
+              ActiveRecord::Result.new(cols, rows)
             end
           end
         end
@@ -65,21 +48,9 @@ module ActiveRecord
         # Returns the last auto-generated ID from the affected table.
         def insert(arel, name = nil, pk = nil, id_value = nil, sequence_name = nil, binds = [])
           sql, binds = sql_for_insert(to_sql(arel, binds), pk, id_value, sequence_name, binds)
-          value      = exec_insert(sql, name, binds)
+          exec_insert(sql, name, binds)  # Also accepts pk and sequence_name in AR4
           id_value
         end
-
-        # Executes the update statement and returns the number of rows affected.
-        # alias_method :update, :execute
-        # def update(sql, name = nil)
-        #   update_sql(sql, name)
-        # end
-
-        # Executes the delete statement and returns the number of rows affected.
-        # alias_method :delete, :execute
-        # def delete(sql, name = nil)
-        #   delete_sql(sql, name)
-        # end
 
         # Checks whether there is currently no transaction active. This is done
         # by querying the database driver, and does not use the transaction
@@ -94,18 +65,18 @@ module ActiveRecord
 
         # Begins the transaction (and turns off auto-committing).
         def begin_db_transaction
-          @transaction = @connection.transaction('READ COMMITTED')
+          @connection.transaction('READ COMMITTED')
         end
 
         # Commits the transaction (and turns on auto-committing).
         def commit_db_transaction
-          @transaction = @connection.commit
+          @connection.commit
         end
 
         # Rolls back the transaction (and turns on auto-committing). Must be
         # done if the transaction block raises an exception or returns false.
         def rollback_db_transaction
-          @transaction = @connection.rollback
+          @connection.rollback
         end
 
         # Appends +LIMIT+ and +OFFSET+ options to an SQL statement, or some SQL
@@ -145,37 +116,15 @@ module ActiveRecord
           select_one("SELECT NEXT VALUE FOR #{sequence_name} FROM RDB$DATABASE").values.first
         end
 
-        # Inserts the given fixture into the table. Overridden in adapters that require
-        # something beyond a simple insert (eg. Oracle).
-        # def insert_fixture(fixture, table_name)
-        #   execute "INSERT INTO #{quote_table_name(table_name)} (#{fixture.key_list}) VALUES (#{fixture.value_list})", 'Fixture Insert'
-        # end
-
-        # def empty_insert_statement_value
-        #   "VALUES(DEFAULT)"
-        # end
-
-        # def case_sensitive_equality_operator
-        #   "="
-        # end
-
-      protected
-        # add column_types method returns empty hash, requred for rails 4 compatibility
-        def add_column_types obj
-          FbArray.new(obj)
-        end
+        protected
 
         # Returns an array of record hashes with the column names as keys and
         # column values as values.
+        # Returns an array of record hashes with the column names as keys and
+        # column values as values. ActiveRecord >= 4 expects an ActiveRecord::Result.
         def select(sql, name = nil, binds = [])
-          translate(sql) do |sql, args|
-            unless binds.empty?
-              args = binds.map { |col, val| type_cast(val, col) } + args
-            end
-            log(expand(sql, args), name) do
-              @connection.query(:hash, sql, *args)
-            end
-          end
+          result = exec_query(sql, name, binds)
+          ActiveRecord::VERSION::MAJOR > 3 ? result : result.to_a
         end
       end
     end
