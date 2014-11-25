@@ -5,6 +5,7 @@
 require 'base64'
 require 'arel'
 require 'arel/visitors/fb'
+require 'arel/visitors/bind_visitor'
 require 'active_record'
 require 'active_record/base'
 require 'active_record/connection_adapters/abstract_adapter'
@@ -124,6 +125,10 @@ module ActiveRecord
 
       @@boolean_domain = { :true => 1, :false => 0, :name => 'BOOLEAN', :type => 'integer' }
       cattr_accessor :boolean_domain
+
+      class BindSubstitution < Arel::Visitors::Fb # :nodoc:
+        include Arel::Visitors::BindVisitor
+      end
 
       def initialize(connection, logger, config=nil)
         super(connection, logger)
