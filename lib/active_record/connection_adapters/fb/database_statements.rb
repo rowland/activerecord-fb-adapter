@@ -102,26 +102,26 @@ module ActiveRecord
           sql
         end
 
-        def default_sequence_name(table_name, column = nil)
+        def default_sequence_name(table_name, _column = nil)
           "#{table_name.to_s.tr('-', '_')[0, table_name_length - 4]}_seq"
         end
 
         # Set the sequence to the max value of the table's column.
         def reset_sequence!(table, column, sequence = nil)
+          sequence ||= default_sequence_name(table, column)
           max_id = select_value("select max(#{column}) from #{table}")
-          execute("alter sequence #{default_sequence_name(table, column)} restart with #{max_id}")
+          execute("alter sequence #{sequence} restart with #{max_id}")
         end
 
+        # Uses the raw connection to get the next sequence value.
         def next_sequence_value(sequence_name)
-          select_one("SELECT NEXT VALUE FOR #{sequence_name} FROM RDB$DATABASE").values.first
+          @connection.query("SELECT NEXT VALUE FOR #{sequence_name} FROM RDB$DATABASE")[0][0]
         end
 
         protected
 
         # Returns an array of record hashes with the column names as keys and
-        # column values as values.
-        # Returns an array of record hashes with the column names as keys and
-        # column values as values. ActiveRecord >= 4 expects an ActiveRecord::Result.
+        # column values as values. ActiveRecord >= 4 returns an ActiveRecord::Result.
         def select(sql, name = nil, binds = [])
           result = exec_query(sql, name, binds)
           ActiveRecord::VERSION::MAJOR > 3 ? result : result.to_a
