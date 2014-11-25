@@ -28,15 +28,19 @@ def test_files
 
   arel_cases = Dir.glob("#{AREL_PATH}/test/**/test_*.rb")
 
-  if ENV['FB_ONLY']
-    fb_cases
-  elsif ENV['ACTIVERECORD_ONLY']
-    test_setup + (ar_cases - adapter_cases)
-  elsif ENV['AREL_ONLY']
-    arel_cases
-  else
-    test_setup + arel_cases + fb_cases + (ar_cases - adapter_cases)
-  end
+  files = if ENV['FB_ONLY']
+            fb_cases
+          elsif ENV['ACTIVERECORD_ONLY']
+            test_setup + (ar_cases - adapter_cases)
+          elsif ENV['AREL_ONLY']
+            arel_cases
+          else
+            test_setup + arel_cases + fb_cases + (ar_cases - adapter_cases)
+          end
+
+  return files unless pattern = ENV.delete('TEST')
+  pattern = Regexp.new(pattern)
+  test_setup + files.select { |f| f =~ pattern }
 end
 
 task default: [:test]

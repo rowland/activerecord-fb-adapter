@@ -7,36 +7,32 @@ module ActiveRecord
         # abstract data types.
         def native_database_types
           {
-            :primary_key => "integer not null primary key",
-            :string      => { :name => "varchar", :limit => 255 },
-            :text        => { :name => "blob sub_type text" },
-            :integer     => { :name => "integer" },
-            :float       => { :name => "float" },
-            :decimal     => { :name => "decimal" },
-            :datetime    => { :name => "timestamp" },
-            :timestamp   => { :name => "timestamp" },
-            :time        => { :name => "time" },
-            :date        => { :name => "date" },
-            :binary      => { :name => "blob" },
+            :primary_key => 'integer not null primary key',
+            :string      => { :name => 'varchar', :limit => 255 },
+            :text        => { :name => 'blob sub_type text' },
+            :integer     => { :name => 'integer' },
+            :float       => { :name => 'float' },
+            :decimal     => { :name => 'decimal' },
+            :datetime    => { :name => 'timestamp' },
+            :timestamp   => { :name => 'timestamp' },
+            :time        => { :name => 'time' },
+            :date        => { :name => 'date' },
+            :binary      => { :name => 'blob' },
             :boolean     => { :name => boolean_domain[:name] }
           }
         end
 
-        # Truncates a table alias according to the limits of the current adapter.
-        # def table_alias_for(table_name)
-        #   table_name[0..table_alias_length-1].gsub(/\./, '_')
-        # end
-
-        # def tables(name = nil) end
-        def tables(name = nil)
+        def tables(_name = nil)
           @connection.table_names
         end
 
         # Returns an array of indexes for the given table.
-        def indexes(table_name, name = nil)
-          result = @connection.indexes.values.select {|ix| ix.table_name == table_name && ix.index_name !~ /^rdb\$/ }
-          indexes = result.map {|ix| IndexDefinition.new(table_name, ix.index_name, ix.unique, ix.columns) }
-          indexes
+        def indexes(table_name, _name = nil)
+          @connection.indexes.values.map { |ix|
+            if ix.table_name == table_name && ix.index_name !~ /^rdb\$/
+              IndexDefinition.new(table_name, ix.index_name, ix.unique, ix.columns)
+            end
+          }.compact
         end
 
         def primary_key(table_name) #:nodoc:
@@ -64,37 +60,30 @@ module ActiveRecord
             WHERE r.rdb$relation_name = '#{ar_to_fb_case(table_name)}'
             ORDER BY r.rdb$field_position
           END_SQL
-          select_rows(sql, name).collect do |field|
-            field_values = field.collect do |value|
-              case value
-                when String then value.rstrip
-                else value
-              end
-            end
-            FbColumn.new(*field_values)
+          select_rows(sql, name).map do |field|
+            FbColumn.new(*field.map { |value|
+              value.is_a?(String) ? value.rstrip : value
+            })
           end
         end
 
         def create_table(name, options = {}) # :nodoc:
-          begin
-            super
-          rescue
-            raise unless non_existent_domain_error?
-            create_boolean_domain
-            super
-          end
-          unless options[:id] == false || options[:sequence] == false
-            sequence_name = options[:sequence] || default_sequence_name(name)
-            create_sequence(sequence_name)
-          end
+          while_ensuring_boolean_domain { super }
+          return if options[:id] == false || options[:sequence] == false
+          sequence_name = options[:sequence] || default_sequence_name(name)
+          create_sequence(sequence_name)
+        end
+
+        # Unfortunately, this is a limitation of Firebird.
+        def rename_table(name, new_name)
+          fail 'Firebird does not support renaming tables.'
         end
 
         def drop_table(name, options = {}) # :nodoc:
           super(name)
-          unless options[:sequence] == false
-            sequence_name = options[:sequence] || default_sequence_name(name)
-            drop_sequence(sequence_name) if sequence_exists?(sequence_name)
-          end
+          return if options[:sequence] == false
+          sequence_name = options[:sequence] || default_sequence_name(name)
+          drop_sequence(sequence_name) if sequence_exists?(sequence_name)
         end
 
         # Creates a sequence
@@ -116,18 +105,11 @@ module ActiveRecord
         def add_column(table_name, column_name, type, options = {})
           add_column_sql = "ALTER TABLE #{quote_table_name(table_name)} ADD #{quote_column_name(column_name)} #{type_to_sql(type, options[:limit], options[:precision], options[:scale])}"
           add_column_options!(add_column_sql, options)
-          begin
-            execute(add_column_sql)
-          rescue
-            raise unless non_existent_domain_error?
-            create_boolean_domain
-            execute(add_column_sql)
-          end
-          if options[:position]
-            # position is 1-based but add 1 to skip id column
-            alter_position_sql = "ALTER TABLE #{quote_table_name(table_name)} ALTER COLUMN #{quote_column_name(column_name)} POSITION #{options[:position] + 1}"
-            execute(alter_position_sql)
-          end
+          while_ensuring_boolean_domain { execute(add_column_sql) }
+          return unless options[:position]
+          # position is 1-based but add 1 to skip id column
+          alter_position_sql = "ALTER TABLE #{quote_table_name(table_name)} ALTER COLUMN #{quote_column_name(column_name)} POSITION #{options[:position] + 1}"
+          execute(alter_position_sql)
         end
 
         # Changes the column's definition according to the new options.
@@ -156,14 +138,15 @@ module ActiveRecord
         #  rename_column(:suppliers, :description, :name)
         def rename_column(table_name, column_name, new_column_name)
           execute "ALTER TABLE #{quote_table_name(table_name)} ALTER #{quote_column_name(column_name)} TO #{quote_column_name(new_column_name)}"
+          rename_column_indexes(table_name, column_name, new_column_name)
         end
 
-        def remove_index!(table_name, index_name) #:nodoc:
+        def remove_index!(_table_name, index_name) #:nodoc:
           execute("DROP INDEX #{quote_column_name(index_name)}")
         end
 
         def index_name(table_name, options) #:nodoc:
-          if Hash === options # legacy support
+          if options.respond_to?(:keys) # legacy support
             if options[:column]
               "#{table_name}_#{Array.wrap(options[:column]) * '_'}"
             elsif options[:name]
@@ -184,15 +167,28 @@ module ActiveRecord
           end
         end
 
-      private
+        private
+
+        # Deprecated in Rails 4.1. Backports functionality.
+        def add_column_options!(sql, options)
+          if options_include_default?(options)
+            sql << " DEFAULT #{quote(options[:default], options[:column])}"
+          end
+
+          # must explicitly check for :null to allow change_column to work on migrations
+          sql << ' NOT NULL' if options[:null] == false
+          sql << ' AUTO_INCREMENT' if options[:auto_increment] == true
+        end if ActiveRecord::VERSION::MAJOR > 3
+
         # Map logical Rails types to Firebird-specific data types.
         def integer_to_sql(limit)
           return 'integer' if limit.nil?
           case limit
-            when 1..2 then 'smallint'
-            when 3..4 then 'integer'
-            when 5..8 then 'bigint'
-            else raise(ActiveRecordError, "No integer type has byte size #{limit}. Use a NUMERIC with PRECISION 0 instead.")
+          when 1..2 then 'smallint'
+          when 3..4 then 'integer'
+          when 5..8 then 'bigint'
+          else
+            fail ActiveRecordError, "No integer type has byte size #{limit}. Use a NUMERIC with PRECISION 0 instead."
           end
         end
 
@@ -204,8 +200,13 @@ module ActiveRecord
           end
         end
 
-        def non_existent_domain_error?
-          $!.message =~ /Specified domain or source column \w+ does not exist/
+        # Creates a domain for boolean fields as needed
+        def while_ensuring_boolean_domain(&block)
+          block.call
+        rescue ActiveRecord::StatementInvalid => e
+          raise unless e.message =~ /Specified domain or source column \w+ does not exist/
+          create_boolean_domain
+          block.call
         end
 
         def create_boolean_domain

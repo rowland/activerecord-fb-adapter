@@ -33,11 +33,8 @@ module ActiveRecord
           connection = ActiveRecord::Base.connection
           if connection
             value = connection.raw_connection.query(:hash, sql)[0]['cast']
-            if value.acts_like?(:date) or value.acts_like?(:time)
-              nil
-            else
-              type_cast(value)
-            end
+            return nil if value.acts_like?(:date) || value.acts_like?(:time)
+            type_cast(value)
           else
             raise ConnectionNotEstablished, "No Firebird connections established."
           end
