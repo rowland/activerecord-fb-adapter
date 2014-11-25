@@ -279,7 +279,7 @@ module ActiveRecord
         case e.message
         when /violation of FOREIGN KEY constraint/
           InvalidForeignKey.new(message, e)
-        when /violation of PRIMARY or UNIQUE KEY constraint/
+        when /violation of PRIMARY or UNIQUE KEY constraint/, /attempt to store duplicate value/
           RecordNotUnique.new(message, e)
         else
           super

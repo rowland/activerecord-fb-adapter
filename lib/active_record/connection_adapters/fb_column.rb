@@ -32,7 +32,7 @@ module ActiveRecord
           sql = "SELECT CAST(#{@default} AS #{column_def}) FROM RDB$DATABASE"
           connection = ActiveRecord::Base.connection
           if connection
-            value = connection.select_one(sql)['cast']
+            value = connection.raw_connection.query(:hash, sql)[0]['cast']
             if value.acts_like?(:date) or value.acts_like?(:time)
               nil
             else
@@ -48,7 +48,8 @@ module ActiveRecord
         %W(#{FbAdapter.boolean_domain[:true]} true t 1).include? value.to_s.downcase
       end
 
-    private
+      private
+
       def parse_default(default_source)
         default_source =~ /^\s*DEFAULT\s+(.*)\s*$/i
         return $1 unless $1.upcase == "NULL"
