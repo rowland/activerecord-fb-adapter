@@ -199,7 +199,7 @@ module ActiveRecord
       def active?
         return false unless @connection.open?
         # return true if @connection.transaction_started
-        select("SELECT 1 FROM RDB$DATABASE")
+        @connection.query("SELECT 1 FROM RDB$DATABASE")
         true
       rescue
         false

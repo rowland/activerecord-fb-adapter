@@ -5,21 +5,22 @@ module ActiveRecord
         def quote(value, column = nil)
           # records are quoted as their primary key
           return value.quoted_id if value.respond_to?(:quoted_id)
+          type = column && column.type
 
           case value
           when String, ActiveSupport::Multibyte::Chars
             value = value.to_s
-            if column && [:integer, :float].include?(column.type)
-              value = column.type == :integer ? value.to_i : value.to_f
+            if [:integer, :float].include?(type)
+              value = type == :integer ? value.to_i : value.to_f
               value.to_s
-            elsif column && column.type != :binary && value.size < 256 && !value.include?('@')
+            elsif type && type != :binary && value.size < 256 && !value.include?('@')
               "'#{quote_string(value)}'"
             else
               "@#{Base64.encode64(value).chop}@"
             end
           when NilClass              then "NULL"
           when TrueClass, FalseClass
-            if column && column.type == :integer
+            if type == :integer
               value ? '1' : '0'
             else
               value ? quoted_true : quoted_false
@@ -28,11 +29,16 @@ module ActiveRecord
           # BigDecimals need to be output in a non-normalized form and quoted.
           when BigDecimal            then value.to_s('F')
           when Symbol                then "'#{quote_string(value.to_s)}'"
+          when Class                 then "'#{value}'"
           else
             if value.acts_like?(:date)
               quote_date(value)
             elsif value.acts_like?(:time)
-              quote_timestamp(value)
+              if type == :time
+                quote_time(value)
+              else
+                quote_timestamp(value)
+              end
             else
               quote_object(value)
             end
@@ -40,13 +46,16 @@ module ActiveRecord
         end
 
         def quote_date(value)
-          "@#{Base64.encode64(value.strftime('%Y-%m-%d')).chop}@"
+          "'#{value.strftime("%Y-%m-%d")}'"
         end
 
         def quote_timestamp(value)
-          zone_conversion_method = ActiveRecord::Base.default_timezone == :utc ? :getutc : :getlocal
-          value = value.respond_to?(zone_conversion_method) ? value.send(zone_conversion_method) : value
-          "@#{Base64.encode64(value.strftime('%Y-%m-%d %H:%M:%S')).chop}@"
+          usec = sprintf "%04d", (value.usec / 100.0).round
+          "'#{get_time(value).strftime("%Y-%m-%d %H:%M:%S")}.#{usec}'"
+        end
+
+        def quote_time(value)
+          "'#{get_time(value).strftime("%H:%M:%S")}'"
         end
 
         def quote_string(string) # :nodoc:
@@ -87,6 +96,11 @@ module ActiveRecord
         end
 
         private
+
+        def get_time(value)
+          get = ::ActiveRecord::Base.default_timezone == :utc ? :getutc : :getlocal
+          value.respond_to?(get) ? value.send(get) : value
+        end
 
         # Maps uppercase Firebird column names to lowercase for ActiveRecord;
         # mixed-case columns retain their original case.

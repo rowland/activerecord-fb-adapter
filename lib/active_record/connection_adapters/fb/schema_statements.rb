@@ -81,7 +81,7 @@ module ActiveRecord
 
         # Unfortunately, this is a limitation of Firebird.
         def rename_table(name, new_name)
-          logger.error 'Firebird does not support renaming tables.'
+          fail 'Firebird does not support renaming tables.'
         end
 
         def drop_table(name, options = {}) # :nodoc:
@@ -143,7 +143,7 @@ module ActiveRecord
         end
 
         def change_column_null(table_name, column_name, null, default = nil)
-          logger.error 'Firebird cannot change the nullability of a column using ALTER COLUMN.'
+          fail 'Firebird cannot change the nullability of a column using ALTER COLUMN.'
         end
 
         # Renames a column.
@@ -191,13 +191,9 @@ module ActiveRecord
 
         private
 
-        if ActiveRecord::VERSION::STRING >= "4.1"
-          def create_table_definition(name, temporary, options, as = nil)
-            TableDefinition.new(native_database_types, name, temporary, options, as)
-          end
-        elsif ActiveRecord::VERSION::MAJOR > 3
-          def create_table_definition(name, temporary, options)
-            TableDefinition.new(native_database_types, name, temporary, options)
+        if ActiveRecord::VERSION::MAJOR > 3
+          def create_table_definition(*args)
+            TableDefinition.new(native_database_types, *args)
           end
         else
           def table_definition

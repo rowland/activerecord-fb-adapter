@@ -45,13 +45,6 @@ module ActiveRecord
           to_sql(arel, binds)
         end
 
-        # Returns the last auto-generated ID from the affected table.
-        def insert(arel, name = nil, pk = nil, id_value = nil, sequence_name = nil, binds = [])
-          sql, binds = sql_for_insert(to_sql(arel, binds), pk, id_value, sequence_name, binds)
-          exec_insert(sql, name, binds)  # Also accepts pk and sequence_name in AR4
-          id_value
-        end
-
         # Checks whether there is currently no transaction active. This is done
         # by querying the database driver, and does not use the transaction
         # house-keeping information recorded by #increment_open_transactions and
@@ -125,6 +118,12 @@ module ActiveRecord
         def select(sql, name = nil, binds = [])
           result = exec_query(sql, name, binds)
           ActiveRecord::VERSION::MAJOR > 3 ? result : result.to_a
+        end
+
+        # Since the ID is prefetched and passed to #insert, this method is useless.
+        # Overriding this method allows us to avoid overriding #insert.
+        def last_inserted_id(_result)
+          nil
         end
       end
     end
