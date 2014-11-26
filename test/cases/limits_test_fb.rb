@@ -1,8 +1,8 @@
 # encoding: UTF-8
-require File.expand_path('../fb_helper', __FILE__)
+require 'cases/fb_helper'
 require 'models_fb/foo'
 
-class LimitsTest < ActiveRecord::TestCase
+class LimitsTestFb < ActiveRecord::TestCase
   def setup
     30.times { |i| Foo.create(:v => i) }
   end

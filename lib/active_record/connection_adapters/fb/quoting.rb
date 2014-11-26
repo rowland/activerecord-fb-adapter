@@ -18,8 +18,12 @@ module ActiveRecord
               "@#{Base64.encode64(value).chop}@"
             end
           when NilClass              then "NULL"
-          when TrueClass             then (column && column.type == :integer ? '1' : quoted_true)
-          when FalseClass            then (column && column.type == :integer ? '0' : quoted_false)
+          when TrueClass, FalseClass
+            if column && column.type == :integer
+              value ? '1' : '0'
+            else
+              value ? quoted_true : quoted_false
+            end
           when Float, Fixnum, Bignum then value.to_s
           # BigDecimals need to be output in a non-normalized form and quoted.
           when BigDecimal            then value.to_s('F')
@@ -65,14 +69,9 @@ module ActiveRecord
           end
         end
 
-        def quote_table_name_for_assignment(table, attr)
+        def quote_table_name_for_assignment(_table, attr)
           quote_column_name(attr)
         end if ::ActiveRecord::VERSION::MAJOR >= 4
-
-        # Quotes the table name. Defaults to column name quoting.
-        # def quote_table_name(table_name)
-        #   quote_column_name(table_name)
-        # end
 
         def quoted_true # :nodoc:
           quote(boolean_domain[:true])
@@ -87,7 +86,8 @@ module ActiveRecord
           value ? quoted_true : quoted_false
         end
 
-      private
+        private
+
         # Maps uppercase Firebird column names to lowercase for ActiveRecord;
         # mixed-case columns retain their original case.
         def fb_to_ar_case(column_name)

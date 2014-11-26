@@ -64,7 +64,7 @@ end
 GC.copy_on_write_friendly = true if GC.respond_to?(:copy_on_write_friendly?)
 
 ActiveRecord::Migration.verbose = false
-ActiveRecord::Base.logger = Logger.new(File.expand_path(File.join(FB_TEST_ROOT,'debug.log')))
+ActiveRecord::Base.logger = Logger.new(File.expand_path(File.join(FB_ROOT, 'debug.log')))
 ActiveRecord::Base.logger.level = 0
 
 load File.join(FB_SCHEMA_ROOT, 'fb_specific_schema.rb')

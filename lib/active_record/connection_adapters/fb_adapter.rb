@@ -13,6 +13,7 @@ require 'active_record/connection_adapters/fb/database_limits'
 require 'active_record/connection_adapters/fb/database_statements'
 require 'active_record/connection_adapters/fb/quoting'
 require 'active_record/connection_adapters/fb/schema_statements'
+require 'active_record/connection_adapters/fb/table_definition'
 require 'active_record/connection_adapters/fb_column'
 require 'active_record/fb_base'
 

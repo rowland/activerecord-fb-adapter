@@ -1,8 +1,8 @@
 # encoding: UTF-8
-require File.expand_path('../fb_helper', __FILE__)
+require 'cases/fb_helper'
 require 'models_fb/bar'
 
-class WhereTest < ActiveRecord::TestCase
+class WhereTestFb < ActiveRecord::TestCase
   def test_update_with_null
     bar = Bar.new(:v1 => "V1", :v2 => "V2")
     bar.save

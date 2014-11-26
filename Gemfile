@@ -25,7 +25,6 @@ end
 
 group :development do
   gem 'bcrypt-ruby', '~> 3.0.0'
-  gem 'bench_press'
   gem 'mocha'
   gem 'minitest-spec-rails'
   gem 'fb'

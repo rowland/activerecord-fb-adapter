@@ -13,10 +13,6 @@ def test_libs
   ['lib', 'test', "#{File.join(AR_PATH, 'test')}", "#{File.join(AREL_PATH, 'test')}"]
 end
 
-# bundle exec rake test FB_ONLY=true
-#
-# If you have trouble running single tests (errors about requirements):
-# http://veganswithtypewriters.net/blog/2013/06/29/weirdness-with-rake-solved/
 def test_files
   test_setup = ['test/cases/fb_helper.rb']
 
@@ -31,14 +27,14 @@ def test_files
   files = if ENV['FB_ONLY']
             fb_cases
           elsif ENV['ACTIVERECORD_ONLY']
-            test_setup + (ar_cases - adapter_cases)
+            ar_cases - adapter_cases
           elsif ENV['AREL_ONLY']
             arel_cases
           else
-            test_setup + arel_cases + fb_cases + (ar_cases - adapter_cases)
+            arel_cases + fb_cases + (ar_cases - adapter_cases)
           end
 
-  return files unless pattern = ENV.delete('TEST')
+  return (test_setup + files) unless pattern = ENV.delete('TEST')
   pattern = Regexp.new(pattern)
   test_setup + files.select { |f| f =~ pattern }
 end

@@ -22,35 +22,20 @@ module ActiveRecord
           31
         end
 
-        # the maximum number of columns per table
-        # def columns_per_table
-        #   1024
-        # end
-
         # the maximum number of indexes per table
         def indexes_per_table
           65_535
         end
 
-        # the maximum number of columns in a multicolumn index
-        # def columns_per_multicolumn_index
-        #   16
-        # end
-
         # the maximum number of elements in an IN (x,y,z) clause
         def in_clause_length
-          1499
+          1_499
         end
 
         # the maximum length of an SQL query
         def sql_query_length
-          32767
+          32_767
         end
-
-        # maximum number of joins in a single query
-        # def joins_per_query
-        #   256
-        # end
       end
     end
   end

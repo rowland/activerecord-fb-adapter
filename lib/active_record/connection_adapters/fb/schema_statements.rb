@@ -68,15 +68,20 @@ module ActiveRecord
         end
 
         def create_table(name, options = {}) # :nodoc:
-          while_ensuring_boolean_domain { super }
-          return if options[:id] == false || options[:sequence] == false
-          sequence_name = options[:sequence] || default_sequence_name(name)
-          create_sequence(sequence_name)
+          needs_sequence = options[:id] != false
+          while_ensuring_boolean_domain do
+            super(name, options) do |table_def|
+              yield table_def if block_given?
+              needs_sequence ||= table_def.needs_sequence
+            end
+          end
+          return if options[:sequence] == false || !needs_sequence
+          create_sequence(options[:sequence] || default_sequence_name(name))
         end
 
         # Unfortunately, this is a limitation of Firebird.
         def rename_table(name, new_name)
-          fail 'Firebird does not support renaming tables.'
+          logger.error 'Firebird does not support renaming tables.'
         end
 
         def drop_table(name, options = {}) # :nodoc:
@@ -106,6 +111,9 @@ module ActiveRecord
           add_column_sql = "ALTER TABLE #{quote_table_name(table_name)} ADD #{quote_column_name(column_name)} #{type_to_sql(type, options[:limit], options[:precision], options[:scale])}"
           add_column_options!(add_column_sql, options)
           while_ensuring_boolean_domain { execute(add_column_sql) }
+          if type == :primary_key && options[:sequence] != false
+            create_sequence(options[:sequence] || default_sequence_name(table_name))
+          end
           return unless options[:position]
           # position is 1-based but add 1 to skip id column
           alter_position_sql = "ALTER TABLE #{quote_table_name(table_name)} ALTER COLUMN #{quote_column_name(column_name)} POSITION #{options[:position] + 1}"
@@ -119,11 +127,12 @@ module ActiveRecord
         #  change_column(:accounts, :description, :text)
         def change_column(table_name, column_name, type, options = {})
           sql = "ALTER TABLE #{quote_table_name(table_name)} ALTER COLUMN #{quote_column_name(column_name)} TYPE #{type_to_sql(type, options[:limit], options[:precision], options[:scale])}"
-          add_column_options!(sql, options)
           execute(sql)
+          change_column_null(table_name, column_name, !!options[:null]) if options.key?(:null)
+          change_column_default(table_name, column_name, options[:default]) if options[:default]
         end
 
-        # Sets a new default value for a column.  If you want to set the default
+        # Sets a new default value for a column. If you want to set the default
         # value to +NULL+, you are out of luck.  You need to
         # DatabaseStatements#execute the appropriate SQL statement yourself.
         # ===== Examples
@@ -131,6 +140,10 @@ module ActiveRecord
         #  change_column_default(:accounts, :authorized, 1)
         def change_column_default(table_name, column_name, default)
           execute("ALTER TABLE #{quote_table_name(table_name)} ALTER #{quote_column_name(column_name)} SET DEFAULT #{quote(default)}")
+        end
+
+        def change_column_null(table_name, column_name, null, default = nil)
+          logger.error 'Firebird cannot change the nullability of a column using ALTER COLUMN.'
         end
 
         # Renames a column.
@@ -152,7 +165,7 @@ module ActiveRecord
             elsif options[:name]
               options[:name]
             else
-              raise ArgumentError, "You must specify the index name"
+              fail ArgumentError, "You must specify the index name"
             end
           else
             index_name(table_name, :column => options)
@@ -167,18 +180,30 @@ module ActiveRecord
           end
         end
 
-        private
-
         # Deprecated in Rails 4.1. Backports functionality.
         def add_column_options!(sql, options)
           if options_include_default?(options)
             sql << " DEFAULT #{quote(options[:default], options[:column])}"
           end
-
           # must explicitly check for :null to allow change_column to work on migrations
           sql << ' NOT NULL' if options[:null] == false
-          sql << ' AUTO_INCREMENT' if options[:auto_increment] == true
         end if ActiveRecord::VERSION::MAJOR > 3
+
+        private
+
+        if ActiveRecord::VERSION::STRING >= "4.1"
+          def create_table_definition(name, temporary, options, as = nil)
+            TableDefinition.new(native_database_types, name, temporary, options, as)
+          end
+        elsif ActiveRecord::VERSION::MAJOR > 3
+          def create_table_definition(name, temporary, options)
+            TableDefinition.new(native_database_types, name, temporary, options)
+          end
+        else
+          def table_definition
+            TableDefinition.new(self)
+          end
+        end
 
         # Map logical Rails types to Firebird-specific data types.
         def integer_to_sql(limit)

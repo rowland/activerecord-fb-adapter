@@ -15,7 +15,7 @@ module ActiveRecord
         unless config[:create]
           require 'pp'
           pp config
-          fail ConnectionNotEstablished, "No Firebird connections established."
+          raise ConnectionNotEstablished, "No Firebird connections established."
         end
         connection = db.create.connect
       end
