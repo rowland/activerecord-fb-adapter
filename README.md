@@ -30,10 +30,10 @@ gem 'activerecord-fb-adapter'
 Then run:
 
 ```
-bundle update
+bundle install
 ```
 
-which will make bundler to get the gem with it's only dependency: the Fb gem which is "native" (has C code) and will be compiled the first time. Be sure you have a Firebird installation with access to the "ibase.h" file for this to succeed.
+Bundler will install the gem and it's dependency, Fb, which is "native" (has C code) and will be compiled the first time. Be sure you have a Firebird installation with access to the "ibase.h" file for this to succeed.
 
 4) Edit the **database.yml** for configuring your database connection:
 
@@ -50,7 +50,7 @@ development:
 
 The default Firebird administrator username and password are **SYSDBA** and **masterkey**, you may have to adjust this to your installation.
 
-Currently the adapter does not supports the "rake db:create" task, so in order to create the database you must add the "create: true" option; with this switch the first time the adapter tries to connect to the database it will be created if it doesn't exists.
+With the "create: true" option, a database will be created the first time the adapter tries to connect if it doesn't exist. Alternatively, if you're using Rails 4 or greater, you can use the "rake db:create" task.
 
 5) Start the rails server in development mode
 

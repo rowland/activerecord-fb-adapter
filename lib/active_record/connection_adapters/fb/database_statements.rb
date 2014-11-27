@@ -113,7 +113,7 @@ module ActiveRecord
         # column values as values. ActiveRecord >= 4 returns an ActiveRecord::Result.
         def select(sql, name = nil, binds = [])
           result = exec_query(sql, name, binds)
-          ActiveRecord::VERSION::MAJOR > 3 ? result : result.to_a
+          ::ActiveRecord::VERSION::MAJOR > 3 ? result : result.to_a
         end
 
         # Since the ID is prefetched and passed to #insert, this method is useless.

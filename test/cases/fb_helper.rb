@@ -23,6 +23,7 @@ require 'minitest-spec-rails'
 require 'minitest-spec-rails/init/active_support'
 require 'minitest-spec-rails/init/mini_shoulda'
 require 'active_record/connection_adapters/fb_adapter'
+require 'active_record/tasks/fb_database_tasks'
 
 # Delete the old database files.
 db_files = Dir.glob(File.join(FB_ROOT, 'db', '*.fdb'))

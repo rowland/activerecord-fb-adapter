@@ -2,6 +2,7 @@
 # Author: Brent Rowland <rowland@rowlandresearch.com>
 # Based originally on FireRuby extension by Ken Kunz <kennethkunz@gmail.com>
 
+require 'fb'
 require 'base64'
 require 'arel'
 require 'arel/visitors/fb'

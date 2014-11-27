@@ -81,7 +81,7 @@ module ActiveRecord
 
         # Unfortunately, this is a limitation of Firebird.
         def rename_table(name, new_name)
-          fail 'Firebird does not support renaming tables.'
+          fail ActiveRecordError, 'Firebird does not support renaming tables.'
         end
 
         def drop_table(name, options = {}) # :nodoc:
@@ -143,7 +143,7 @@ module ActiveRecord
         end
 
         def change_column_null(table_name, column_name, null, default = nil)
-          fail 'Firebird cannot change the nullability of a column using ALTER COLUMN.'
+          fail ActiveRecordError, 'Firebird cannot change the nullability of a column using ALTER COLUMN.'
         end
 
         # Renames a column.
@@ -187,11 +187,11 @@ module ActiveRecord
           end
           # must explicitly check for :null to allow change_column to work on migrations
           sql << ' NOT NULL' if options[:null] == false
-        end if ActiveRecord::VERSION::MAJOR > 3
+        end if ::ActiveRecord::VERSION::MAJOR > 3
 
         private
 
-        if ActiveRecord::VERSION::MAJOR > 3
+        if ::ActiveRecord::VERSION::MAJOR > 3
           def create_table_definition(*args)
             TableDefinition.new(native_database_types, *args)
           end
@@ -224,7 +224,7 @@ module ActiveRecord
         # Creates a domain for boolean fields as needed
         def while_ensuring_boolean_domain(&block)
           block.call
-        rescue ActiveRecord::StatementInvalid => e
+        rescue ::ActiveRecord::StatementInvalid => e
           raise unless e.message =~ /Specified domain or source column \w+ does not exist/
           create_boolean_domain
           block.call

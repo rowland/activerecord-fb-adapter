@@ -17,3 +17,8 @@ connections:
     arunit2:
       <<: *default_connection_info
       database: db/activerecord_unittest2.fdb
+
+fbunit_tasks:
+  <<: *default_connection_info
+  database: db/fb_tasks_test.fdb
+  create: false

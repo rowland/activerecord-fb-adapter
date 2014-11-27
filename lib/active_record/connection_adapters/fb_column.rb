@@ -30,7 +30,7 @@ module ActiveRecord
       def default
         if @default
           sql = "SELECT CAST(#{@default} AS #{column_def}) FROM RDB$DATABASE"
-          connection = ActiveRecord::Base.connection
+          connection = ::ActiveRecord::Base.connection
           if connection
             value = connection.raw_connection.query(:hash, sql)[0]['cast']
             return nil if value.acts_like?(:date) || value.acts_like?(:time)
