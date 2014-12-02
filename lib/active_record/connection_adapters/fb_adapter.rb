@@ -259,7 +259,7 @@ module ActiveRecord
         end
       end
 
-      def translate(sql)
+      def translate(sql, binds = [])
         sql.gsub!(/\sIN\s+\([^\)]*\)/mi) do |m|
           m.gsub(/\(([^\)]*)\)/m) do |n|
             n.gsub(/\@(.*?)\@/m) do |o|
@@ -267,7 +267,7 @@ module ActiveRecord
             end
           end
         end
-        args = []
+        args = binds.map { |col, val| type_cast(val, col) }
         sql.gsub!(/\@(.*?)\@/m) { |m| args << decode(m[1..-1]); '?' }
         yield(sql, args) if block_given?
       end

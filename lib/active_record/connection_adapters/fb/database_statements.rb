@@ -10,12 +10,12 @@ module ActiveRecord
 
         # Executes the SQL statement in the context of this connection.
         def execute(sql, name = nil, skip_logging = false)
-          translate(sql) do |translated_sql, args|
+          translate(sql) do |translated, args|
             if (name == :skip_logging) || skip_logging
-              @connection.execute(translated_sql, *args)
+              @connection.execute(translated, *args)
             else
               log(sql, args, name) do
-                @connection.execute(translated_sql, *args)
+                @connection.execute(translated, *args)
               end
             end
           end
@@ -25,13 +25,9 @@ module ActiveRecord
         # +binds+ as the bind substitutes. +name+ is logged along with
         # the executed +sql+ statement.
         def exec_query(sql, name = 'SQL', binds = [])
-          translate(sql) do |translated_sql, args|
-            args = binds.map { |col, val|
-              type_cast(val, col)
-            }.concat(args) unless binds.empty?
-
-            log(expand(translated_sql, args), name) do
-              result, rows = @connection.execute(translated_sql, *args) do |cursor|
+          translate(sql, binds) do |translated, args|
+            log(expand(translated, args), name) do
+              result, rows = @connection.execute(translated, *args) do |cursor|
                 [cursor.fields, cursor.fetchall]
               end
               next result unless result.respond_to?(:map)

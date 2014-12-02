@@ -18,14 +18,10 @@ module ActiveRecord
             else
               "@#{Base64.encode64(value).chop}@"
             end
-          when NilClass              then "NULL"
-          when TrueClass, FalseClass
-            if type == :integer
-              value ? '1' : '0'
-            else
-              value ? quoted_true : quoted_false
-            end
-          when Float, Fixnum, Bignum then value.to_s
+          when nil                   then "NULL"
+          when true                  then quoted_true
+          when false                 then quoted_false
+          when Numeric, ActiveSupport::Duration then value.to_s
           # BigDecimals need to be output in a non-normalized form and quoted.
           when BigDecimal            then value.to_s('F')
           when Symbol                then "'#{quote_string(value.to_s)}'"
@@ -34,11 +30,7 @@ module ActiveRecord
             if value.acts_like?(:date)
               quote_date(value)
             elsif value.acts_like?(:time)
-              if type == :time
-                quote_time(value)
-              else
-                quote_timestamp(value)
-              end
+              quote_timestamp(value)
             else
               quote_object(value)
             end
@@ -46,16 +38,13 @@ module ActiveRecord
         end
 
         def quote_date(value)
-          "'#{value.strftime("%Y-%m-%d")}'"
+          "@#{Base64.encode64(value.strftime('%Y-%m-%d')).chop}@"
         end
 
         def quote_timestamp(value)
-          usec = sprintf "%04d", (value.usec / 100.0).round
-          "'#{get_time(value).strftime("%Y-%m-%d %H:%M:%S")}.#{usec}'"
-        end
-
-        def quote_time(value)
-          "'#{get_time(value).strftime("%H:%M:%S")}'"
+          get = ActiveRecord::Base.default_timezone == :utc ? :getutc : :getlocal
+          value = value.respond_to?(get) ? value.send(get) : value
+          "@#{Base64.encode64(value.strftime('%Y-%m-%d %H:%M:%S')).chop}@"
         end
 
         def quote_string(string) # :nodoc:
@@ -96,11 +85,6 @@ module ActiveRecord
         end
 
         private
-
-        def get_time(value)
-          get = ::ActiveRecord::Base.default_timezone == :utc ? :getutc : :getlocal
-          value.respond_to?(get) ? value.send(get) : value
-        end
 
         # Maps uppercase Firebird column names to lowercase for ActiveRecord;
         # mixed-case columns retain their original case.
