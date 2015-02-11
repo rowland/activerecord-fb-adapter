@@ -20,11 +20,7 @@ To bundle with your local clone of Rails:
 
 ## Configuring test databases
 
-By default, the tests will create a database in the project root directory in a folder called db. You'll need to first create this folder:
-
-`mkdir db && chmod o+w db`
-
-If you want to create your databases in a different folder, you can modify `test/config.yml`.
+By default, the tests will create a database in the project root directory in a folder called db. If you want to create your databases in a different folder, you can modify `test/config.yml`.
 
 ## Running the tests
 
@@ -39,3 +35,7 @@ To run only one test file:
 To run only a specific test:
 
 `bundle exec rake TESTOPTS="--name=/pattern_to_match_test_name/"`
+
+To run only the adapter's test suite:
+
+`bundle exec rake FB_ONLY=true`

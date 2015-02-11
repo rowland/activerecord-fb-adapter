@@ -1,4 +1,7 @@
 source 'https://rubygems.org'
+gemspec
+
+gem 'bcrypt', '~> 3.1.7', require: false
 
 if ENV['RAILS_SOURCE']
   gemspec path: ENV['RAILS_SOURCE']
@@ -21,11 +24,4 @@ end
 
 if ENV['AREL']
   gem 'arel', path: ENV['AREL']
-end
-
-group :development do
-  gem 'bcrypt-ruby', '~> 3.0.0'
-  gem 'mocha'
-  gem 'minitest-spec-rails'
-  gem 'fb'
 end
