@@ -49,7 +49,7 @@ module ActiveRecord
 
       def parse_default(default_source)
         default_source =~ /^\s*DEFAULT\s+(.*)\s*$/i
-        return $1 unless $1.upcase == "NULL"
+        return $1 unless $1.nil? || $1.upcase == "NULL"
       end
 
       def column_def
