@@ -26,4 +26,11 @@ class AddColumnTestFb < ActiveRecord::TestCase
     @connection.add_column :bicycles, :id, :primary_key, sequence: false
     assert !@raw.generator_names.include?('bicycles_seq')
   end
+
+  def test_blank_default
+    @connection.add_column :bicycles, :model, :string, default: ''
+    assert_equal '', @connection.columns('bicycles').find { |column|
+      column.name == 'model'
+    }.default
+  end
 end
