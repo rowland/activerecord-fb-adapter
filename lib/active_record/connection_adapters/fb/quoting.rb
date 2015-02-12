@@ -13,7 +13,7 @@ module ActiveRecord
             if [:integer, :float].include?(type)
               value = type == :integer ? value.to_i : value.to_f
               value.to_s
-            elsif type && type != :binary && value.size < 256 && !value.include?('@')
+            elsif !(type && type == :binary) && value.size < 256 && !value.include?('@')
               "'#{quote_string(value)}'"
             else
               "@#{Base64.encode64(value).chop}@"
