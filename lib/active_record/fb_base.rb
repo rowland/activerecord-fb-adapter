@@ -18,7 +18,7 @@ module ActiveRecord
     end
 
     def self.fb_connection_config(config)
-      config = config.symbolize_keys.reverse_merge(:downcase_names => true, :port => 3050)
+      config = config.symbolize_keys.dup.reverse_merge(:downcase_names => true, :port => 3050)
       fail ArgumentError, 'No database specified. Missing argument: database.' if !config[:database]
       if config[:host].nil? || config[:host] =~ /localhost/i
         config[:database] = File.expand_path(config[:database], defined?(Rails) && Rails.root)
