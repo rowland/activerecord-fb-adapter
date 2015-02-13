@@ -1,7 +1,7 @@
 source 'https://rubygems.org'
 gemspec
 
-gem 'bcrypt', '~> 3.1.7', require: false
+gem 'bcrypt', '~> 3.0', require: false
 
 if ENV['RAILS_SOURCE']
   gemspec path: ENV['RAILS_SOURCE']

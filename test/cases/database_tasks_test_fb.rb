@@ -7,7 +7,7 @@ require 'fileutils'
 # simply so that it can be referenced in the test
 class ActiveRecord::Tasks::DatabaseAlreadyExists < StandardError; end
 
-class DatabaseTasksTestFb < Minitest::Test
+class DatabaseTasksTestFb < ActiveSupport::TestCase
   def setup
     ar_config = YAML.load ERB.new(File.read(ENV['ARCONFIG'])).result
     @config = ar_config['fbunit_tasks']
