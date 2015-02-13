@@ -1,0 +1,23 @@
+language: ruby
+
+rvm:
+  - 2.0.0-p247
+
+before_install:
+  - sudo apt-get install firebird2.5-superclassic firebird2.5-dev
+  - sudo sed 's/ENABLE_FIREBIRD_SERVER=no/ENABLE_FIREBIRD_SERVER=yes/g' /etc/default/firebird2.5 -i
+  - sudo service firebird2.5-superclassic start
+  - gem install bundler
+
+before_script:
+  - bundle update
+
+env:
+  matrix:
+    - "RAILS_VERSION=3.2.21"
+    - "RAILS_VERSION=4.0.13"
+    - "RAILS_VERSION=4.1.9"
+    - "RAILS_VERSION=4.2.0"
+
+script:
+  - bundle exec rake

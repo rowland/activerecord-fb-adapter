@@ -24,9 +24,11 @@ require 'minitest-spec-rails/init/active_support'
 require 'minitest-spec-rails/init/mini_shoulda'
 require 'active_record/connection_adapters/fb_adapter'
 
-# Delete the old database files.
-db_files = Dir.glob(File.join(FB_ROOT, 'db', '*.fdb'))
-FileUtils.rm db_files if db_files.any?
+# Reset the db directory
+db_dir = File.join(FB_ROOT, 'db')
+FileUtils.rm_rf db_dir
+FileUtils.mkdir db_dir
+FileUtils.chmod 0777, db_dir
 
 module ActiveRecord::ConnectionAdapters
   # Can't handle decimal precision over 18, so force it as the max
