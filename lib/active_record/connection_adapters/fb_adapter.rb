@@ -128,6 +128,9 @@ module ActiveRecord
       @@boolean_domain = { :true => 1, :false => 0, :name => 'BOOLEAN', :type => 'integer' }
       cattr_accessor :boolean_domain
 
+      @@default_transaction_isolation = :read_committed
+      cattr_accessor :default_transaction_isolation
+
       class BindSubstitution < Arel::Visitors::Fb # :nodoc:
         include Arel::Visitors::BindVisitor
       end
@@ -172,6 +175,10 @@ module ActiveRecord
       # SQL Server, and others support this.  MySQL and others do not.
       def supports_ddl_transactions?
         false
+      end
+
+      def supports_transaction_isolation?
+        true
       end
 
       # Does this adapter support savepoints? FirebirdSQL does
