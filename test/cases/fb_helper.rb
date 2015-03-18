@@ -14,6 +14,9 @@ require 'rubygems'
 require 'bundler'
 require 'fileutils'
 Bundler.setup
+require 'pry'
+require 'simplecov'
+require "minitest/reporters"
 require 'mocha/api'
 require 'active_support/dependencies'
 require 'active_record'
@@ -22,6 +25,10 @@ require 'active_record/connection_adapters/abstract_adapter'
 require 'minitest-spec-rails'
 require 'minitest-spec-rails/init/active_support'
 require 'minitest-spec-rails/init/mini_shoulda'
+
+Minitest::Reporters.use! Minitest::Reporters::SpecReporter.new
+
+SimpleCov.start
 require 'active_record/connection_adapters/fb_adapter'
 require 'active_record/tasks/fb_database_tasks'
 

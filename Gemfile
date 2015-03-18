@@ -2,6 +2,9 @@ source 'https://rubygems.org'
 gemspec
 
 gem 'bcrypt', '~> 3.0', require: false
+gem 'pry', require: false
+gem 'simplecov', require: false
+gem 'minitest-reporters'
 
 if ENV['RAILS_SOURCE']
   gemspec path: ENV['RAILS_SOURCE']

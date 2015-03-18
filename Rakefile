@@ -44,5 +44,4 @@ task default: [:test]
 Rake::TestTask.new do |t|
   t.libs = test_libs
   t.test_files = test_files
-  t.verbose = true
 end

@@ -126,7 +126,12 @@ module ActiveRecord
       include Fb::SchemaStatements
 
       @@boolean_domain = { :true => 1, :false => 0, :name => 'BOOLEAN', :type => 'integer' }
-      cattr_accessor :boolean_domain
+      cattr_reader :boolean_domain
+
+      def self.boolean_domain=(domain)
+        FbColumn::TRUE_VALUES << domain[:true]
+        @@boolean_domain = domain
+      end
 
       @@default_transaction_isolation = :read_committed
       cattr_accessor :default_transaction_isolation

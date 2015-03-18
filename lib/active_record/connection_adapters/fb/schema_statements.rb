@@ -41,7 +41,8 @@ module ActiveRecord
             FROM rdb$indices i
             JOIN rdb$index_segments s ON i.rdb$index_name = s.rdb$index_name
             LEFT JOIN rdb$relation_constraints c ON i.rdb$index_name = c.rdb$index_name
-            WHERE i.rdb$relation_name = '#{ar_to_fb_case(table_name)}' and c.rdb$constraint_type = 'PRIMARY KEY';
+            WHERE i.rdb$relation_name = '#{ar_to_fb_case(table_name)}'
+            AND c.rdb$constraint_type = 'PRIMARY KEY';
           END_SQL
           row = select_one(sql)
           row && fb_to_ar_case(row.values.first.rstrip)
@@ -49,21 +50,13 @@ module ActiveRecord
 
         # Returns an array of Column objects for the table specified by +table_name+.
         # See the concrete implementation for details on the expected parameter values.
-        def columns(table_name, name = nil)
-          sql = <<-END_SQL
-            SELECT r.rdb$field_name, r.rdb$field_source, f.rdb$field_type, f.rdb$field_sub_type,
-                   f.rdb$field_length, f.rdb$field_precision, f.rdb$field_scale,
-                   COALESCE(r.rdb$default_source, f.rdb$default_source) rdb$default_source,
-                   COALESCE(r.rdb$null_flag, f.rdb$null_flag) rdb$null_flag
-            FROM rdb$relation_fields r
-            JOIN rdb$fields f ON r.rdb$field_source = f.rdb$field_name
-            WHERE r.rdb$relation_name = '#{ar_to_fb_case(table_name)}'
-            ORDER BY r.rdb$field_position
-          END_SQL
-          select_rows(sql, name).map do |field|
-            FbColumn.new(*field.map { |value|
-              value.is_a?(String) ? value.rstrip : value
-            })
+        def columns(table_name, _name = nil)
+          column_definitions(table_name).map do |field|
+            field.symbolize_keys!.each { |k, v| v.rstrip! if v.is_a?(String) }
+            properties = field.values_at(:name, :default_source)
+            properties << field_to_sql_type(field)
+            properties << !field[:null_flag]
+            FbColumn.new(*properties, field.slice(:domain, :sub_type))
           end
         end
 
@@ -108,7 +101,10 @@ module ActiveRecord
         # Adds a new column to the named table.
         # See TableDefinition#column for details of the options you can use.
         def add_column(table_name, column_name, type, options = {})
-          add_column_sql = "ALTER TABLE #{quote_table_name(table_name)} ADD #{quote_column_name(column_name)} #{type_to_sql(type, options[:limit], options[:precision], options[:scale])}"
+          type_sql = type_to_sql(type, *options.values_at(:limit, :precision, :scale))
+          add_column_sql = "ALTER TABLE #{quote_table_name(table_name)} "\
+                           "ADD #{quote_column_name(column_name)} #{type_sql}"
+
           add_column_options!(add_column_sql, options)
           while_ensuring_boolean_domain { execute(add_column_sql) }
           if type == :primary_key && options[:sequence] != false
@@ -116,8 +112,9 @@ module ActiveRecord
           end
           return unless options[:position]
           # position is 1-based but add 1 to skip id column
-          alter_position_sql = "ALTER TABLE #{quote_table_name(table_name)} ALTER COLUMN #{quote_column_name(column_name)} POSITION #{options[:position] + 1}"
-          execute(alter_position_sql)
+          execute "ALTER TABLE #{quote_table_name(table_name)} "\
+                  "ALTER COLUMN #{quote_column_name(column_name)} "\
+                  "POSITION #{options[:position] + 1}"
         end
 
         # Changes the column's definition according to the new options.
@@ -126,10 +123,12 @@ module ActiveRecord
         #  change_column(:suppliers, :name, :string, :limit => 80)
         #  change_column(:accounts, :description, :text)
         def change_column(table_name, column_name, type, options = {})
-          sql = "ALTER TABLE #{quote_table_name(table_name)} ALTER COLUMN #{quote_column_name(column_name)} TYPE #{type_to_sql(type, options[:limit], options[:precision], options[:scale])}"
-          execute(sql)
+          type_sql = type_to_sql(type, *options.values_at(:limit, :precision, :scale))
+          execute "ALTER TABLE #{quote_table_name(table_name)} "\
+                  "ALTER COLUMN #{quote_column_name(column_name)} TYPE #{type_sql}"
+
           change_column_null(table_name, column_name, !!options[:null]) if options.key?(:null)
-          change_column_default(table_name, column_name, options[:default]) if options[:default]
+          change_column_default(table_name, column_name, options[:default]) if options.key?(:default)
         end
 
         # Sets a new default value for a column. If you want to set the default
@@ -139,18 +138,26 @@ module ActiveRecord
         #  change_column_default(:suppliers, :qualification, 'new')
         #  change_column_default(:accounts, :authorized, 1)
         def change_column_default(table_name, column_name, default)
-          execute("ALTER TABLE #{quote_table_name(table_name)} ALTER #{quote_column_name(column_name)} SET DEFAULT #{quote(default)}")
+          execute "ALTER TABLE #{quote_table_name(table_name)} "\
+                  "ALTER #{quote_column_name(column_name)} "\
+                  "SET DEFAULT #{quote(default)}"
         end
 
         def change_column_null(table_name, column_name, null, default = nil)
-          fail ActiveRecordError, 'Firebird cannot change the nullability of a column using ALTER COLUMN.'
+          execute "UPDATE RDB$RELATION_FIELDS "\
+                  "SET RDB$NULL_FLAG=#{quote(null ? nil : 1)} "\
+                  "WHERE RDB$FIELD_NAME='#{ar_to_fb_case(column_name)}' "\
+                  "AND RDB$RELATION_NAME='#{ar_to_fb_case(table_name)}'"
         end
 
         # Renames a column.
         # ===== Example
         #  rename_column(:suppliers, :description, :name)
         def rename_column(table_name, column_name, new_column_name)
-          execute "ALTER TABLE #{quote_table_name(table_name)} ALTER #{quote_column_name(column_name)} TO #{quote_column_name(new_column_name)}"
+          execute "ALTER TABLE #{quote_table_name(table_name)} "\
+                  "ALTER #{quote_column_name(column_name)} "\
+                  "TO #{quote_column_name(new_column_name)}"
+
           rename_column_indexes(table_name, column_name, new_column_name)
         end
 
@@ -191,6 +198,38 @@ module ActiveRecord
 
         private
 
+        def column_definitions(table_name)
+          exec_query(<<-end_sql, 'SCHEMA')
+            SELECT
+              r.rdb$field_name name,
+              r.rdb$field_source domain,
+              f.rdb$field_type type,
+              f.rdb$field_sub_type sub_type,
+              f.rdb$field_length "limit",
+              f.rdb$field_precision "precision",
+              f.rdb$field_scale "scale",
+              COALESCE(r.rdb$default_source, f.rdb$default_source) default_source,
+              COALESCE(r.rdb$null_flag, f.rdb$null_flag) null_flag
+            FROM rdb$relation_fields r
+            JOIN rdb$fields f ON r.rdb$field_source = f.rdb$field_name
+            WHERE r.rdb$relation_name = '#{ar_to_fb_case(table_name)}'
+            ORDER BY r.rdb$field_position
+          end_sql
+        end
+
+        def field_to_sql_type(field)
+          type, sub_type = field.values_at(:type, :sub_type)
+          sql_type = ::Fb::SqlType.from_code(type, sub_type || 0)
+
+          case sql_type
+          when 'CHAR', 'VARCHAR'
+            "#{sql_type}(#{field[:limit]})"
+          when 'NUMERIC', 'DECIMAL'
+            "#{sql_type}(#{field[:precision]},#{field[:scale].abs})"
+          else sql_type
+          end
+        end
+
         if ::ActiveRecord::VERSION::MAJOR > 3
           def create_table_definition(*args)
             TableDefinition.new(native_database_types, *args)
@@ -209,7 +248,8 @@ module ActiveRecord
           when 3..4 then 'integer'
           when 5..8 then 'bigint'
           else
-            fail ActiveRecordError, "No integer type has byte size #{limit}. Use a NUMERIC with PRECISION 0 instead."
+            fail ActiveRecordError, "No integer type has byte size #{limit}. "\
+                                    "Use a NUMERIC with PRECISION 0 instead."
           end
         end
 
@@ -231,11 +271,8 @@ module ActiveRecord
         end
 
         def create_boolean_domain
-          sql = <<-end_sql
-            CREATE DOMAIN #{boolean_domain[:name]} AS #{boolean_domain[:type]}
-            CHECK (VALUE IN (#{quoted_true}, #{quoted_false}) OR VALUE IS NULL)
-          end_sql
-          execute(sql)
+          execute "CREATE DOMAIN #{boolean_domain[:name]} AS #{boolean_domain[:type]} "\
+                  "CHECK (VALUE IN (#{quoted_true}, #{quoted_false}) OR VALUE IS NULL)"
         end
 
         def sequence_exists?(sequence_name)
