@@ -41,17 +41,6 @@ module ActiveRecord
           to_sql(arel, binds)
         end
 
-        # Checks whether there is currently no transaction active. This is done
-        # by querying the database driver, and does not use the transaction
-        # house-keeping information recorded by #increment_open_transactions and
-        # friends.
-        #
-        # Returns true if there is no transaction active, false if there is a
-        # transaction active, and nil if this information is unknown.
-        def outside_transaction?
-          !@connection.transaction_started
-        end
-
         # Begins the transaction (and turns off auto-committing).
         def begin_db_transaction
           begin_isolated_db_transaction(default_transaction_isolation)
@@ -136,6 +125,23 @@ module ActiveRecord
         # Overriding this method allows us to avoid overriding #insert.
         def last_inserted_id(_result)
           nil
+        end
+
+        def translate(sql, binds = [])
+          sql.gsub!(/\sIN\s+\([^\)]*\)/mi) do |m|
+            m.gsub(/\(([^\)]*)\)/m) do |n|
+              n.gsub(/\@(.*?)\@/m) do |o|
+                "'#{quote_string(decode(o[1..-1]))}'"
+              end
+            end
+          end
+          args = binds.map { |col, val| type_cast(val, col) }
+          sql.gsub!(/\@(.*?)\@/m) { |m| args << decode(m[1..-1]); '?' }
+          yield(sql, args) if block_given?
+        end
+
+        def expand(sql, args)
+          ([sql] + args) * ', '
         end
       end
     end

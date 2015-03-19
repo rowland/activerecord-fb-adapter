@@ -2,4 +2,4 @@ pkg
 db
 Gemfile.lock
 coverage
-debug.log
+*.log

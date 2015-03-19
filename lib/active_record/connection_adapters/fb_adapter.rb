@@ -138,7 +138,7 @@ module ActiveRecord
 
       class BindSubstitution < Arel::Visitors::Fb # :nodoc:
         include Arel::Visitors::BindVisitor
-      end
+      end if ActiveRecord::VERSION::STRING < "4.2.0"
 
       def initialize(connection, logger, config=nil)
         super(connection, logger)
@@ -179,7 +179,7 @@ module ActiveRecord
       # CREATE TABLE or ALTER TABLE get rolled back by a transaction?  PostgreSQL,
       # SQL Server, and others support this.  MySQL and others do not.
       def supports_ddl_transactions?
-        false
+        true
       end
 
       def supports_transaction_isolation?
@@ -270,23 +270,6 @@ module ActiveRecord
         def decode(s)
           Base64.decode64(s)
         end
-      end
-
-      def translate(sql, binds = [])
-        sql.gsub!(/\sIN\s+\([^\)]*\)/mi) do |m|
-          m.gsub(/\(([^\)]*)\)/m) do |n|
-            n.gsub(/\@(.*?)\@/m) do |o|
-              "'#{quote_string(decode(o[1..-1]))}'"
-            end
-          end
-        end
-        args = binds.map { |col, val| type_cast(val, col) }
-        sql.gsub!(/\@(.*?)\@/m) { |m| args << decode(m[1..-1]); '?' }
-        yield(sql, args) if block_given?
-      end
-
-      def expand(sql, args)
-        ([sql] + args) * ', '
       end
 
       def translate_exception(e, message)

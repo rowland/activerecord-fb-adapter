@@ -1,3 +1,5 @@
+ActiveRecord::Migration.verbose = false
+
 ActiveRecord::Schema.define do
   # The AR Schema doesn't set the sequence option for the
   # companies table, but uses a custom sequence name.

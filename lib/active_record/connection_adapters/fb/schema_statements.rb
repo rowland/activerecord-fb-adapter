@@ -54,7 +54,7 @@ module ActiveRecord
           column_definitions(table_name).map do |field|
             field.symbolize_keys!.each { |k, v| v.rstrip! if v.is_a?(String) }
             properties = field.values_at(:name, :default_source)
-            properties << field_to_sql_type(field)
+            properties += column_type_for(field)
             properties << !field[:null_flag]
             FbColumn.new(*properties, field.slice(:domain, :sub_type))
           end
@@ -63,7 +63,7 @@ module ActiveRecord
         def create_table(name, options = {}) # :nodoc:
           needs_sequence = options[:id] != false
           while_ensuring_boolean_domain do
-            super(name, options) do |table_def|
+            super name, options do |table_def|
               yield table_def if block_given?
               needs_sequence ||= table_def.needs_sequence
             end
@@ -78,7 +78,7 @@ module ActiveRecord
         end
 
         def drop_table(name, options = {}) # :nodoc:
-          super(name)
+          super name, options
           return if options[:sequence] == false
           sequence_name = options[:sequence] || default_sequence_name(name)
           drop_sequence(sequence_name) if sequence_exists?(sequence_name)
@@ -107,9 +107,11 @@ module ActiveRecord
 
           add_column_options!(add_column_sql, options)
           while_ensuring_boolean_domain { execute(add_column_sql) }
+
           if type == :primary_key && options[:sequence] != false
             create_sequence(options[:sequence] || default_sequence_name(table_name))
           end
+
           return unless options[:position]
           # position is 1-based but add 1 to skip id column
           execute "ALTER TABLE #{quote_table_name(table_name)} "\
@@ -144,6 +146,8 @@ module ActiveRecord
         end
 
         def change_column_null(table_name, column_name, null, default = nil)
+          change_column_default(table_name, column_name, default) if default
+
           execute "UPDATE RDB$RELATION_FIELDS "\
                   "SET RDB$NULL_FLAG=#{quote(null ? nil : 1)} "\
                   "WHERE RDB$FIELD_NAME='#{ar_to_fb_case(column_name)}' "\
@@ -217,16 +221,20 @@ module ActiveRecord
           end_sql
         end
 
-        def field_to_sql_type(field)
+        def column_type_for(field)
           type, sub_type = field.values_at(:type, :sub_type)
           sql_type = ::Fb::SqlType.from_code(type, sub_type || 0)
 
-          case sql_type
-          when 'CHAR', 'VARCHAR'
-            "#{sql_type}(#{field[:limit]})"
-          when 'NUMERIC', 'DECIMAL'
-            "#{sql_type}(#{field[:precision]},#{field[:scale].abs})"
-          else sql_type
+          if sql_type =~ /(char|varchar)/i
+            sql_type = "#{sql_type}(#{field[:limit]})"
+          elsif sql_type =~ /(numeric|decimal)/i
+            sql_type = "#{sql_type}(#{field[:precision]},#{field[:scale].abs})"
+          end
+
+          if ActiveRecord::VERSION::STRING < "4.2.0"
+            [sql_type]
+          else
+            [lookup_cast_type(sql_type), sql_type]
           end
         end
 
