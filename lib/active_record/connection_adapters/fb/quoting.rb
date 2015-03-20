@@ -11,23 +11,17 @@ module ActiveRecord
             value = value.to_s
             if [:integer, :float].include?(type)
               (type == :integer ? value.to_i : value.to_f).to_s
-            elsif !(type && type == :binary) && value.size < 256 && !value.include?('@')
-              "'#{quote_string(value)}'"
+            elsif type && type == :binary
+              "@BINDBINARY#{Base64.encode64(value.to_s)}BINDBINARY@"
             else
-              "@#{Base64.encode64(value).chop}@"
+              "'#{quote_string(value)}'"
             end
+          when Date, Time
+            "@BINDDATE#{quoted_date(value)}BINDDATE@"
           else
-            _quote(value)
+            super
           end
         end if ActiveRecord::VERSION::STRING < "4.2.0"
-
-        def quote_object(obj)
-          if obj.respond_to?(:to_str)
-            "@#{Base64.encode64(obj.to_str).chop}@"
-          else
-            "@#{Base64.encode64(obj.to_yaml).chop}@"
-          end
-        end
 
         def quote_column_name(column_name) # :nodoc:
           name = ar_to_fb_case(column_name.to_s).gsub('"', '')
@@ -55,25 +49,24 @@ module ActiveRecord
         end
 
         def type_cast(value, column)
-          return super unless value == true || value == false
-          value ? quoted_true : quoted_false
+          if [true, false].include?(value)
+            value ? quoted_true : quoted_false
+          else
+            super
+          end
         end
 
         private
 
+        # Types that are bind parameters will not be quoted
         def _quote(value)
           case value
-          when String, ActiveSupport::Multibyte::Chars
-            "'#{quote_string(value.to_s)}'"
-          when true                  then quoted_true
-          when false                 then quoted_false
-          when nil                   then "NULL"
-          when Numeric, ActiveSupport::Duration then value.to_s
-          when BigDecimal            then value.to_s('F')
-          when Date, Time            then "@#{Base64.encode64(quoted_date(value)).chop}@"
-          when Symbol                then "'#{quote_string(value.to_s)}'"
-          when Class                 then "'#{value}'"
-          else quote_object(value)
+          when Type::Binary::Data
+            "@BINDBINARY#{Base64.encode64(value.to_s)}BINDBINARY@"
+          when Date, Time
+            "@BINDDATE#{quoted_date(value)}BINDDATE@"
+          else
+            super
           end
         end
 
@@ -87,6 +80,16 @@ module ActiveRecord
         # mixed-case columns retain their original case.
         def ar_to_fb_case(column_name)
           column_name =~ /[[:upper:]]/ ? column_name : column_name.upcase
+        end
+
+        if defined? Encoding
+          def decode(s)
+            Base64.decode64(s).force_encoding(@connection.encoding)
+          end
+        else
+          def decode(s)
+            Base64.decode64(s)
+          end
         end
       end
     end

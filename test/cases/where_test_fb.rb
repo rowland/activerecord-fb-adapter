@@ -28,4 +28,10 @@ class WhereTestFb < ActiveRecord::TestCase
 
     Bar.where(:v2 => nil).update_all(:v2 => "worked")
   end
+
+  def test_where_with_time_on_date_field
+    bar = Bar.create(created_date: Date.today)
+    result = Bar.where('created_date > ?', 2.days.ago)
+    assert_equal bar, result.to_a.first
+  end
 end

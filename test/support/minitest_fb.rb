@@ -9,6 +9,10 @@ end
 
 require 'minitest-spec-rails/init/active_support'
 
-Minitest::Reporters.use! ENV['TRAVIS'] ?
-                         MinitestReporters::DefaultReporter.new(color: false) :
-                         Minitest::Reporters::SpecReporter.new
+reporter = if ENV['TRAVIS']
+  Minitest::Reporters::DefaultReporter.new(color: false)
+else
+  Minitest::Reporters::SpecReporter.new
+end
+
+Minitest::Reporters.use! reporter

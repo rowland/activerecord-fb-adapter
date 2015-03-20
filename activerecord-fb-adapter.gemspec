@@ -16,7 +16,7 @@ Gem::Specification.new do |s|
   s.add_dependency 'activerecord', '>= 3.2.0'
 
   s.add_development_dependency 'mocha'
-  s.add_development_dependency 'pry'
+  s.add_development_dependency 'pry-byebug'
   s.add_development_dependency 'minitest-spec-rails'
   s.add_development_dependency 'minitest-reporters'
 end

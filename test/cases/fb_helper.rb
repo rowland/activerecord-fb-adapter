@@ -12,8 +12,8 @@ require 'support/overrides_fb'
 ARTest::Fb.setup_database_dir!
 
 require 'cases/helper'
-require 'support/coerceable_test_fb'
-ActiveRecord::TestCase.send :include, ARTest::Fb::CoerceableTest
+require 'support/skippable_test_fb'
+ActiveRecord::TestCase.send :include, ARTest::Fb::SkippableTest
 
 ARTest::Fb.load_schema!
 

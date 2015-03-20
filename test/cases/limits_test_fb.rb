@@ -4,7 +4,7 @@ require 'models_fb/foo'
 
 class LimitsTestFb < ActiveRecord::TestCase
   def setup
-    30.times { |i| Foo.create(:v => i) }
+    30.times { |i| Foo.create!(v: i) }
   end
 
   def teardown

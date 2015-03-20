@@ -5,7 +5,13 @@
 require 'fb'
 require 'base64'
 require 'arel'
-require 'arel/visitors/fb'
+
+if Arel::VERSION < "6.0.0"
+  require 'arel/visitors/fb'
+else
+  require 'arel/visitors/fb_collector'
+end
+
 require 'arel/visitors/bind_visitor'
 require 'active_record'
 require 'active_record/base'
@@ -17,6 +23,10 @@ require 'active_record/connection_adapters/fb/schema_statements'
 require 'active_record/connection_adapters/fb/table_definition'
 require 'active_record/connection_adapters/fb_column'
 require 'active_record/fb_base'
+
+if ActiveRecord::VERSION::STRING >= "4.2.0"
+  require 'active_record/type/fb/time'
+end
 
 module ActiveRecord
   module ConnectionAdapters # :nodoc:
@@ -146,10 +156,6 @@ module ActiveRecord
         @visitor = Arel::Visitors::Fb.new(self)
       end
 
-      def self.visitor_for(pool) # :nodoc:
-        Arel::Visitors::Fb.new(pool)
-      end
-
       # Returns the human-readable name of the adapter.  Use mixed case - one
       # can always use downcase if needed.
       def adapter_name
@@ -262,14 +268,12 @@ module ActiveRecord
 
       protected
 
-      if defined?(Encoding)
-        def decode(s)
-          Base64.decode64(s).force_encoding(@connection.encoding)
-        end
-      else
-        def decode(s)
-          Base64.decode64(s)
-        end
+      # Maps SQL types to ActiveRecord 4.2+ type objects
+      def initialize_type_map(m)
+        super
+        m.register_type %r(^time$)i, Type::Fb::Time.new
+        m.register_type %r(timestamp)i, Type::DateTime.new
+        m.alias_type    %r(blob sub_type text)i, 'text'
       end
 
       def translate_exception(e, message)

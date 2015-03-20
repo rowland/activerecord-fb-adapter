@@ -24,18 +24,16 @@ By default, the tests will create a database in the project root directory in a 
 
 ## Running the tests
 
-To run the tests:
+To run the tests, simply run `bundle exec rake`. I recommend redirecting the test into a log like this:
 
-`bundle exec rake`
+`bundle exec rake | tee 4.2.results.log`
 
-To run only one test file:
+| Command                                                 | Description                                       |
+|:--------------------------------------------------------|:------------------------------------------------- |
+| bundle exec rake                                        | Run ActiveRecord and Firebird's test suites       |
+| bundle exec rake TEST=path/to/test.rb                   | Run a specific test from Firebird's suite         |
+| bundle exec rake AR_TEST=migrations_test.rb             | Run a specific test from ActiveRecord             |
+| bundle exec rake TESTOPTS='--name=/test_something/'     | Run a test named 'test_something'                 |
+| bundle exec rake SMOKE=true                             | Run just a few tests that identify major problems |
 
-`bundle exec rake TEST=path/to/test/file.rb`
-
-To run only a specific test:
-
-`bundle exec rake TESTOPTS="--name=/pattern_to_match_test_name/"`
-
-To run only the adapter's test suite:
-
-`bundle exec rake FB_ONLY=true`
+Please run all tests before contributing.
