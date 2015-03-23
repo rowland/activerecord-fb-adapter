@@ -36,7 +36,7 @@ module ActiveRecord
         end
 
         def primary_key(table_name) #:nodoc:
-          row = select_one(squish_sql(<<-end_sql))
+          row = @connection.query(<<-end_sql)
             SELECT s.rdb$field_name
             FROM rdb$indices i
             JOIN rdb$index_segments s ON i.rdb$index_name = s.rdb$index_name
@@ -44,7 +44,8 @@ module ActiveRecord
             WHERE i.rdb$relation_name = '#{ar_to_fb_case(table_name)}'
             AND c.rdb$constraint_type = 'PRIMARY KEY';
           end_sql
-          row && fb_to_ar_case(row.values.first.rstrip)
+
+          row.first && fb_to_ar_case(row.first[0].rstrip)
         end
 
         # Returns an array of Column objects for the table specified by +table_name+.
@@ -123,6 +124,16 @@ module ActiveRecord
             ALTER COLUMN #{quote_column_name(column_name)}
             POSITION #{options[:position] + 1}
           end_sql
+        end
+
+        def remove_column(table_name, column_name, type = nil, options = {})
+          indexes(table_name).each do |i|
+            if i.columns.any? { |c| c == column_name.to_s }
+              remove_index! i.table, i.name
+            end
+          end
+
+          super
         end
 
         # Changes the column's definition according to the new options.
@@ -268,7 +279,7 @@ module ActiveRecord
         # Creates a domain for boolean fields as needed
         def while_ensuring_boolean_domain(&block)
           block.call
-        rescue ::ActiveRecord::StatementInvalid => e
+        rescue ActiveRecordError => e
           raise unless e.message =~ /Specified domain or source column \w+ does not exist/
           create_boolean_domain
           block.call

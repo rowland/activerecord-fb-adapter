@@ -79,6 +79,7 @@ module Arel
       def visit_Arel_Nodes_Offset o, collector
         collector << " SKIP "
         visit o.expr, collector
+        collector << SPACE
       end
 
       # Firebird helper

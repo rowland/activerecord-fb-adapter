@@ -131,7 +131,7 @@ class TypesTestFb < ActiveRecord::TestCase
     end
 
     def test_time_cast_type
-      type = ActiveRecord::Type::Fb::Time
+      type = ActiveRecord::Type::Time
       assert_equal type, column(:type_time).cast_type.class
     end
 

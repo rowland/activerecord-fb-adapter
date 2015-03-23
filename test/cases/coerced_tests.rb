@@ -7,6 +7,20 @@ ARTest::Fb.skip_test! 'ActiveRecord::AdapterTest',
                       :test_disable_referential_integrity,
                       because: "can't disable referential integrity"
 
+ARTest::Fb.coerce 'AttributeMethodsTest' do
+  def test_typecast_attribute_from_select_to_false
+    Topic.create(:title => 'Budget')
+    topic = Topic.all.merge!(:select => "topics.*, 0 as is_test").first
+    assert !topic.is_test?
+  end
+
+  def test_typecast_attribute_from_select_to_true
+    Topic.create(:title => 'Budget')
+    topic = Topic.all.merge!(:select => "topics.*, 1 as is_test").first
+    assert topic.is_test?
+  end
+end
+
 ARTest::Fb.coerce 'BasicsTest' do
   skip_tests! :test_limit_with_comma, because: "doesn't support limit with comma"
 
@@ -28,6 +42,27 @@ ARTest::Fb.coerce 'BelongsToAssociationsTest' do
   end
 end
 
+ARTest::Fb.coerce 'CalculationsTest' do
+  # This test tries to match LIMIT
+  def test_limit_is_kept
+    queries = assert_sql { Account.limit(1).count }
+    assert_equal 1, queries.length
+    assert_match(/ROWS 1/, queries.first)
+  end
+
+  def test_offset_is_kept
+    queries = assert_sql { Account.offset(1).count }
+    assert_equal 1, queries.length
+    assert_match(/SKIP 1/, queries.first)
+  end
+
+  def test_limit_with_offset_is_kept
+    queries = assert_sql { Account.limit(1).offset(1).count }
+    assert_equal 1, queries.length
+    assert_match(/ROWS 2 TO 2/, queries.first)
+  end
+end
+
 ARTest::Fb.skip_tests! 'ActiveRecord::Migration::ChangeSchemaTest',
                        :test_add_column_not_null_with_default,
                        :test_change_column_quotes_column_names,
@@ -41,6 +76,28 @@ ARTest::Fb.coerce 'ActiveRecord::Migration::ColumnAttributesTest' do
   skip_tests! :test_native_types, :test_native_decimal_insert_manual_vs_automatic,
               because: "Only supports up to precision 18. "\
                        "This test creates columns with precision 30"
+end
+
+ARTest::Fb.coerce 'ActiveRecord::Migration::ColumnsTest' do
+  # We use non standard index naming
+  def test_rename_column_with_an_index
+    add_column "test_models", :hat_name, :string
+    add_index :test_models, :hat_name
+
+    assert_equal 1, connection.indexes('test_models').size
+    rename_column "test_models", "hat_name", "name"
+
+    assert_equal ['test_models_name'], connection.indexes('test_models').map(&:name)
+  end
+
+  def test_rename_column_with_multi_column_index
+    add_column "test_models", :hat_size, :integer
+    add_column "test_models", :hat_style, :string, limit: 100
+    add_index "test_models", ["hat_style", "hat_size"], unique: true
+
+    rename_column "test_models", "hat_size", 'size'
+    assert_equal ['test_models_hat_style_size'], connection.indexes('test_models').map(&:name)
+  end
 end
 
 ARTest::Fb.skip_test! 'ActiveRecord::Migration::CreateJoinTableTest',
@@ -69,6 +126,18 @@ ARTest::Fb.coerce 'EagerAssociationTest' do
                                    .where("char_length(comments.body) > 15")
                                    .references(:comments).count
   end
+
+
+  def test_include_has_many_using_primary_key
+    expected = Firm.find(1).clients_using_primary_key.sort_by(&:name)
+    firm = Firm.all.merge!(
+      :includes => :clients_using_primary_key,
+      :order => 'clients_using_primary_keys_comp.name'
+    ).find(1)
+    assert_no_queries do
+      assert_equal expected, firm.clients_using_primary_key
+    end
+  end
 end
 
 ARTest::Fb.coerce 'EagerSingularizationTest' do
@@ -86,6 +155,30 @@ ARTest::Fb.coerce 'FinderTest' do
     assert_sql(/ROWS 3/) { Topic.take(3).entries }
     assert_sql(/ROWS 2/) { Topic.first(2).entries }
     assert_sql(/ROWS 5/) { Topic.last(5).entries }
+  end
+end
+
+ARTest::Fb.coerce 'HasAndBelongsToManyAssociationsTest' do
+  # We shorten table names
+  def test_join_table_alias
+    assert_equal 3, Developer.references(:developers_projects_join).merge(
+      :includes => {:projects => :developers},
+      :where => 'projects_developers_projects_jo.joined_on IS NOT NULL'
+    ).to_a.size
+  end
+
+  def test_join_with_group
+    group = Developer.columns.inject([]) do |g, c|
+      g << "developers.#{c.name}"
+      g << "developers_projects_2.#{c.name}"
+    end
+    Project.columns.each { |c| group << "projects.#{c.name}" }
+
+    assert_equal 3, Developer.references(:developers_projects_join).merge(
+      :includes => {:projects => :developers},
+      :where => 'projects_developers_projects_jo.joined_on IS NOT NULL',
+      :group => group.join(",")
+    ).to_a.size
   end
 end
 
@@ -140,10 +233,33 @@ ARTest::Fb.coerce 'ActiveRecord::Migration::ReferencesStatementsTest' do
   end
 end
 
+ARTest::Fb.skip_tests! 'ActiveRecord::Migration::ReferencesIndexTest',
+                       :test_creates_index, :test_creates_index_for_existing_table,
+                       :test_creates_index_with_options, :test_creates_polymorphic_index,
+                       :test_creates_polymorphic_index_for_existing_table,
+                       because: "nonstandard index naming"
+
 ARTest::Fb.skip_tests! 'ActiveRecord::Migration::RenameTableTest',
                        :test_rename_table, :test_rename_table_with_an_index,
                        :test_rename_table_does_not_rename_custom_named_index,
                        because: "can't rename tables"
+
+ARTest::Fb.coerce 'SerializedAttributeTest' do
+  # This test was failing because it doesn't insert a pkey
+  def test_json_read_db_null
+    Topic.serialize :content, JSON
+    Topic.connection.insert "INSERT INTO topics (id, content) VALUES(2000, NULL)"
+    t = Topic.find(2000)
+    assert_nil t.content
+  end
+
+  def test_json_read_legacy_null
+    Topic.serialize :content, JSON
+    Topic.connection.insert "INSERT INTO topics (id, content) VALUES(2000, 'null')"
+    t = Topic.find(2000)
+    assert_nil t.content
+  end
+end
 
 ARTest::Fb.coerce 'TestAdapterWithInvalidConnection' do
   def setup; end

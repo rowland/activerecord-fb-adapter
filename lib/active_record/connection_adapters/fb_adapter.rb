@@ -1,3 +1,4 @@
+
 # Rails 3 & 4 specific database adapter for Firebird (http://firebirdsql.org)
 # Author: Brent Rowland <rowland@rowlandresearch.com>
 # Based originally on FireRuby extension by Ken Kunz <kennethkunz@gmail.com>
@@ -23,10 +24,6 @@ require 'active_record/connection_adapters/fb/schema_statements'
 require 'active_record/connection_adapters/fb/table_definition'
 require 'active_record/connection_adapters/fb_column'
 require 'active_record/fb_base'
-
-if ActiveRecord::VERSION::STRING >= "4.2.0"
-  require 'active_record/type/fb/time'
-end
 
 module ActiveRecord
   module ConnectionAdapters # :nodoc:
@@ -271,7 +268,6 @@ module ActiveRecord
       # Maps SQL types to ActiveRecord 4.2+ type objects
       def initialize_type_map(m)
         super
-        m.register_type %r(^time$)i, Type::Fb::Time.new
         m.register_type %r(timestamp)i, Type::DateTime.new
         m.alias_type    %r(blob sub_type text)i, 'text'
       end
@@ -282,6 +278,8 @@ module ActiveRecord
           InvalidForeignKey.new(message, e)
         when /violation of PRIMARY or UNIQUE KEY constraint/, /attempt to store duplicate value/
           RecordNotUnique.new(message, e)
+        when /This operation is not defined for system tables/
+          ActiveRecordError.new(message)
         else
           super
         end
