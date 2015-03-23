@@ -37,3 +37,5 @@ ActiveRecord::Schema.define do
     t.binary    :type_binary
   end
 end
+
+ActiveRecord::Migration.verbose = true

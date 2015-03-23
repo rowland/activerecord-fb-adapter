@@ -98,6 +98,25 @@ ARTest::Fb.coerce 'ActiveRecord::Migration::ColumnsTest' do
     rename_column "test_models", "hat_size", 'size'
     assert_equal ['test_models_hat_style_size'], connection.indexes('test_models').map(&:name)
   end
+
+  def test_remove_column_with_multi_column_index
+    add_column "test_models", :hat_size, :integer
+    add_column "test_models", :hat_style, :string, :limit => 100
+    add_index "test_models", ["hat_style", "hat_size"], :unique => true
+
+    assert_equal 1, connection.indexes('test_models').size
+    remove_column("test_models", "hat_size")
+    assert_equal [], connection.indexes('test_models').map(&:name)
+  end
+
+  def test_column_with_index
+    connection.create_table "my_table", force: true do |t|
+      t.string :item_number, index: true
+    end
+    assert connection.index_exists?("my_table", :item_number, name: :my_table_item_number)
+  ensure
+    connection.drop_table(:my_table) rescue nil
+  end
 end
 
 ARTest::Fb.skip_test! 'ActiveRecord::Migration::CreateJoinTableTest',
@@ -179,6 +198,38 @@ ARTest::Fb.coerce 'HasAndBelongsToManyAssociationsTest' do
       :where => 'projects_developers_projects_jo.joined_on IS NOT NULL',
       :group => group.join(",")
     ).to_a.size
+  end
+end
+
+ARTest::Fb.coerce 'ActiveRecord::Migration::IndexTest' do
+  # This test normally explicitly adds really long index names
+  def test_add_index
+    connection.add_index("testings", "last_name")
+    connection.remove_index("testings", "last_name")
+
+    connection.add_index("testings", ["last_name", "first_name"])
+    connection.remove_index("testings", :column => ["last_name", "first_name"])
+
+    connection.add_index("testings", ["last_name", "first_name"])
+    connection.remove_index("testings", ["last_name", "first_name"])
+
+    connection.add_index("testings", ["last_name"], :length => 10)
+    connection.remove_index("testings", "last_name")
+
+    connection.add_index("testings", ["last_name"], :length => {:last_name => 10})
+    connection.remove_index("testings", ["last_name"])
+
+    connection.add_index("testings", ["last_name", "first_name"], :length => 10)
+    connection.remove_index("testings", ["last_name", "first_name"])
+
+    connection.add_index("testings", ["last_name", "first_name"], :length => {:last_name => 10, :first_name => 20})
+    connection.remove_index("testings", ["last_name", "first_name"])
+
+    connection.add_index("testings", ["key"], :name => "key_idx", :unique => true)
+    connection.remove_index("testings", :name => "key_idx", :unique => true)
+
+    connection.add_index("testings", %w(last_name first_name administrator), :name => "named_admin")
+    connection.remove_index("testings", :name => "named_admin")
   end
 end
 
