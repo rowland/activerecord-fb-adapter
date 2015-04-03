@@ -1,7 +1,7 @@
 Gem::Specification.new do |s|
   s.author = "Brent Rowland"
   s.name = "activerecord-fb-adapter"
-  s.version = "0.9.1"
+  s.version = "1.0.0"
   s.date = "2014-12-30"
   s.summary = "ActiveRecord Firebird Adapter for Rails 3 and 4 with support for migrations."
   s.licenses = ["MIT"]
@@ -16,5 +16,7 @@ Gem::Specification.new do |s|
   s.add_dependency 'activerecord', '>= 3.2.0'
 
   s.add_development_dependency 'mocha'
+  s.add_development_dependency 'pry-byebug'
   s.add_development_dependency 'minitest-spec-rails'
+  s.add_development_dependency 'minitest-reporters'
 end

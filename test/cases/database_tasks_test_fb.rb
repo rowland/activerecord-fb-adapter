@@ -1,5 +1,3 @@
-# encoding: UTF-8
-
 require 'cases/fb_helper'
 require 'fileutils'
 
@@ -64,10 +62,10 @@ class DatabaseTasksTestFb < ActiveSupport::TestCase
   private
 
   def fdb_file
-    File.expand_path @config['database'], FB_ROOT
+    File.expand_path @config['database'], ARTest::Fb.root_fb
   end
 
   def database_tasks
-    @tasks ||= ActiveRecord::Tasks::FbDatabaseTasks.new(@config, FB_ROOT)
+    @tasks ||= ActiveRecord::Tasks::FbDatabaseTasks.new(@config, ARTest::Fb.root_fb)
   end
 end if ::ActiveRecord::VERSION::MAJOR > 3

@@ -21,7 +21,3 @@ else
   end
   gem 'rails', git: "git://github.com/rails/rails.git", tag: "v#{version}"
 end
-
-if ENV['AREL']
-  gem 'arel', path: ENV['AREL']
-end

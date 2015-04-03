@@ -1,3 +1,4 @@
+
 # Rails 3 & 4 specific database adapter for Firebird (http://firebirdsql.org)
 # Author: Brent Rowland <rowland@rowlandresearch.com>
 # Based originally on FireRuby extension by Ken Kunz <kennethkunz@gmail.com>
@@ -5,7 +6,13 @@
 require 'fb'
 require 'base64'
 require 'arel'
-require 'arel/visitors/fb'
+
+if Arel::VERSION < "6.0.0"
+  require 'arel/visitors/fb'
+else
+  require 'arel/visitors/fb_collector'
+end
+
 require 'arel/visitors/bind_visitor'
 require 'active_record'
 require 'active_record/base'
@@ -126,23 +133,24 @@ module ActiveRecord
       include Fb::SchemaStatements
 
       @@boolean_domain = { :true => 1, :false => 0, :name => 'BOOLEAN', :type => 'integer' }
-      cattr_accessor :boolean_domain
+      cattr_reader :boolean_domain
+
+      def self.boolean_domain=(domain)
+        FbColumn::TRUE_VALUES << domain[:true]
+        @@boolean_domain = domain
+      end
 
       @@default_transaction_isolation = :read_committed
       cattr_accessor :default_transaction_isolation
 
       class BindSubstitution < Arel::Visitors::Fb # :nodoc:
         include Arel::Visitors::BindVisitor
-      end
+      end if ActiveRecord::VERSION::STRING < "4.2.0"
 
       def initialize(connection, logger, config=nil)
         super(connection, logger)
         @config = config
         @visitor = Arel::Visitors::Fb.new(self)
-      end
-
-      def self.visitor_for(pool) # :nodoc:
-        Arel::Visitors::Fb.new(pool)
       end
 
       # Returns the human-readable name of the adapter.  Use mixed case - one
@@ -174,7 +182,7 @@ module ActiveRecord
       # CREATE TABLE or ALTER TABLE get rolled back by a transaction?  PostgreSQL,
       # SQL Server, and others support this.  MySQL and others do not.
       def supports_ddl_transactions?
-        false
+        true
       end
 
       def supports_transaction_isolation?
@@ -257,31 +265,11 @@ module ActiveRecord
 
       protected
 
-      if defined?(Encoding)
-        def decode(s)
-          Base64.decode64(s).force_encoding(@connection.encoding)
-        end
-      else
-        def decode(s)
-          Base64.decode64(s)
-        end
-      end
-
-      def translate(sql, binds = [])
-        sql.gsub!(/\sIN\s+\([^\)]*\)/mi) do |m|
-          m.gsub(/\(([^\)]*)\)/m) do |n|
-            n.gsub(/\@(.*?)\@/m) do |o|
-              "'#{quote_string(decode(o[1..-1]))}'"
-            end
-          end
-        end
-        args = binds.map { |col, val| type_cast(val, col) }
-        sql.gsub!(/\@(.*?)\@/m) { |m| args << decode(m[1..-1]); '?' }
-        yield(sql, args) if block_given?
-      end
-
-      def expand(sql, args)
-        ([sql] + args) * ', '
+      # Maps SQL types to ActiveRecord 4.2+ type objects
+      def initialize_type_map(m)
+        super
+        m.register_type %r(timestamp)i, Type::DateTime.new
+        m.alias_type    %r(blob sub_type text)i, 'text'
       end
 
       def translate_exception(e, message)
@@ -290,6 +278,8 @@ module ActiveRecord
           InvalidForeignKey.new(message, e)
         when /violation of PRIMARY or UNIQUE KEY constraint/, /attempt to store duplicate value/
           RecordNotUnique.new(message, e)
+        when /This operation is not defined for system tables/
+          ActiveRecordError.new(message)
         else
           super
         end

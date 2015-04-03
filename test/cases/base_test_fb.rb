@@ -1,5 +1,5 @@
 # encoding: UTF-8
-require File.expand_path('../fb_helper', __FILE__)
+require 'cases/fb_helper'
 require 'models_fb/foo'
 
 class BaseTestFb < ActiveRecord::TestCase

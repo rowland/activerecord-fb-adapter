@@ -1,72 +1,56 @@
 module ActiveRecord
   module ConnectionAdapters
     class FbColumn < Column # :nodoc:
-      def initialize(name, domain, type, sub_type, length, precision, scale, default_source, null_flag)
-        @firebird_type = ::Fb::SqlType.from_code(type, sub_type || 0)
-        super(name.downcase, nil, @firebird_type, !null_flag)
-        @default = parse_default(default_source) if default_source
-        case @firebird_type
-        when 'VARCHAR', 'CHAR'
-          @limit = length
-        when 'DECIMAL', 'NUMERIC'
-          @precision, @scale = precision, scale.abs
-        end
-        @domain, @sub_type = domain, sub_type
-      end
+      class << self
+        delegate :boolean_domain, to: 'ActiveRecord::ConnectionAdapters::FbAdapter'
 
-      def type
-        if @domain =~ /BOOLEAN/
-          :boolean
-        elsif @type == :binary and @sub_type == 1
-          :text
-        else
-          @type
-        end
-      end
+        # When detecting types, ActiveRecord expects strings in a certain format.
+        # In 4.2, these strings are converted to ActiveRecord::Type::Value objects
+        # using the type_map (see #initialize_type_map). Prior to 4.2, the sql_type
+        # could be coerced to a certain ActiveRecord type in Column#simplified_type.
+        def sql_type_for(field)
+          type, sub_type, domain = field.values_at(:type, :sub_type, :domain)
+          sql_type = ::Fb::SqlType.from_code(type, sub_type || 0).downcase
 
-      # Submits a _CAST_ query to the database, casting the default value to the specified SQL type.
-      # This enables Firebird to provide an actual value when context variables are used as column
-      # defaults (such as CURRENT_TIMESTAMP).
-      def default
-        if @default
-          sql = "SELECT CAST(#{@default} AS #{column_def}) FROM RDB$DATABASE"
-          connection = ::ActiveRecord::Base.connection
-          if connection
-            value = connection.raw_connection.query(:hash, sql)[0]['cast']
-            return nil if value.acts_like?(:date) || value.acts_like?(:time)
-            type_cast(value)
-          else
-            raise ConnectionNotEstablished, "No Firebird connections established."
+          case sql_type
+          when /(numeric|decimal)/
+            sql_type << "(#{field[:precision]},#{field[:scale].abs})"
+          when /(int|float|double|char|varchar)/
+            sql_type << "(#{field[:limit]})"
           end
+
+          sql_type << ' sub_type text' if sql_type =~ /blob/ && sub_type == 1
+          sql_type = 'boolean' if domain =~ %r(#{boolean_domain[:name]})i
+          sql_type
         end
       end
 
-      def self.value_to_boolean(value)
-        %W(#{FbAdapter.boolean_domain[:true]} true t 1).include? value.to_s.downcase
+      attr_reader :sub_type, :domain
+
+      if ActiveRecord::VERSION::STRING < "4.2.0"
+        def initialize(name, default, sql_type = nil, null = true, fb_options = {})
+          @domain, @sub_type = fb_options.values_at(:domain, :sub_type)
+          super(name.downcase, parse_default(default), sql_type, null)
+        end
+      else
+        def initialize(name, default, cast_type, sql_type = nil, null = true, fb_options = {})
+          @domain, @sub_type = fb_options.values_at(:domain, :sub_type)
+          super(name.downcase, parse_default(default), cast_type, sql_type, null)
+        end
       end
 
       private
 
-      def parse_default(default_source)
-        default_source =~ /^\s*DEFAULT\s+(.*)\s*$/i
-        return $1 unless $1.upcase == "NULL"
+      def parse_default(default)
+        return if default.nil? || default =~ /null/i
+        default.gsub(/^\s*DEFAULT\s+/i, '').gsub(/(^'|'$)/, '')
       end
 
-      def column_def
-        case @firebird_type
-        when 'CHAR', 'VARCHAR'    then "#{@firebird_type}(#{@limit})"
-        when 'NUMERIC', 'DECIMAL' then "#{@firebird_type}(#{@precision},#{@scale.abs})"
-        #when 'DOUBLE'             then "DOUBLE PRECISION"
-        else @firebird_type
-        end
-      end
-
+      # Type conversion prior to 4.2
       def simplified_type(field_type)
-        if field_type == 'TIMESTAMP'
-          :datetime
-        else
-          super
-        end
+        return :datetime if field_type =~ /timestamp/
+        return :text if field_type =~ /blob sub_type text/
+        super
       end
     end
   end
