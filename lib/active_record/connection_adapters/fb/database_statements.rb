@@ -54,7 +54,23 @@ module ActiveRecord
 
         # Begins the transaction (and turns off auto-committing).
         def begin_db_transaction
-          @connection.transaction('READ COMMITTED')
+          begin_isolated_db_transaction(default_transaction_isolation)
+        end
+
+        # Default isolation levels for transactions. This method exists
+        # in 4.0.2+, so it's here for backward compatibility with AR 3
+        def transaction_isolation_levels
+          {
+            read_committed:   "READ COMMITTED",
+            repeatable_read:  "REPEATABLE READ",
+            serializable:     "SERIALIZABLE"
+          }
+        end
+
+        # Allows providing the :transaction option to ActiveRecord::Base.transaction
+        # in 4.0.2+. Can accept verbatim isolation options like 'WAIT READ COMMITTED'
+        def begin_isolated_db_transaction(isolation)
+          @connection.transaction transaction_isolation_levels.fetch(isolation, isolation)
         end
 
         # Commits the transaction (and turns on auto-committing).
