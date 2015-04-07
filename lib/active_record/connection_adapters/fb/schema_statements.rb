@@ -223,9 +223,9 @@ module ActiveRecord
           exec_query(squish_sql(<<-end_sql), 'SCHEMA')
             SELECT
               r.rdb$field_name name,
-              r.rdb$field_source domain,
+              r.rdb$field_source "domain",
               f.rdb$field_type type,
-              f.rdb$field_sub_type sub_type,
+              f.rdb$field_sub_type "sub_type",
               f.rdb$field_length "limit",
               f.rdb$field_precision "precision",
               f.rdb$field_scale "scale",
