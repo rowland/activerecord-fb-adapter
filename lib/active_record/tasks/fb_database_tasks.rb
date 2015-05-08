@@ -22,7 +22,7 @@ module ActiveRecord
       end
 
       def purge
-        drop
+        drop rescue nil
         create
       end
 
