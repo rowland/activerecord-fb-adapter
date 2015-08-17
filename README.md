@@ -1,6 +1,7 @@
 # ActiveRecord Firebird Adapter
 [![Gem Version](https://badge.fury.io/rb/activerecord-fb-adapter.svg)](http://badge.fury.io/rb/activerecord-fb-adapter)
 [![Build Status](https://travis-ci.org/rowland/activerecord-fb-adapter.png?branch=master)](https://travis-ci.org/rowland/activerecord-fb-adapter)
+![Downloads](https://img.shields.io/gem/dt/activerecord-fb-adapter.png)
 
 <img src="/project_logo.png" align="left" hspace="10">
 This is the ActiveRecord adapter for working with the [Firebird SQL Server](http://firebirdsql.org/). It currently supports Rails 3.2.x and 4.x. Although this adapter may not yet have feature parity with the 1st tier databases supported by Rails, it has been used in production by different people without issues and may be considered stable. It uses under the hood the [Ruby Firebird Extension Library](https://github.com/rowland/fb).
