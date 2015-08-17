@@ -23,6 +23,10 @@ module ActiveRecord
           end
         end if ActiveRecord::VERSION::STRING < "4.2.0"
 
+        def quote_string(string) # :nodoc:
+          string.gsub(/'/, "''")
+        end
+
         def quote_column_name(column_name) # :nodoc:
           name = ar_to_fb_case(column_name.to_s).gsub('"', '')
           @connection.dialect == 1 ? %Q(#{name}) : %Q("#{name}")
