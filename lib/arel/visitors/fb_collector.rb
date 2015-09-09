@@ -87,7 +87,7 @@ module Arel
         collector << " ROWS "
         visit o.offset.expr + 1, collector
         collector << " TO "
-        visit o.offset.expr + o.limit.expr.expr, collector
+        visit o.offset.expr + o.limit.expr, collector
       end
     end
   end
