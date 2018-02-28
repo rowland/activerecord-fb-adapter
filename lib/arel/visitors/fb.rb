@@ -5,7 +5,7 @@ module Arel
 
       def visit_Arel_Nodes_SelectStatement o, *a
         select_core = o.cores.map { |x| visit_Arel_Nodes_SelectCore(x, *a) }.join
-        select_core.sub!(/^\s*SELECT/i, "SELECT #{visit(o.offset)}") if o.offset && !o.limit
+        select_core = select_core.sub(/^\s*SELECT/i, "SELECT #{visit(o.offset)}") if o.offset && !o.limit
         [
           select_core,
           ("ORDER BY #{o.orders.map { |x| visit(x) }.join(', ')}" unless o.orders.empty?),
